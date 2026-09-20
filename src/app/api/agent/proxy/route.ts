@@ -116,7 +116,7 @@ export async function GET(request: Request) {
     providers: { github: gh.connected, vercel: vc.connected },
     usage: {
       callCount: session.callCount,
-      howTo: 'POST /api/agent/proxy { provider, method, path, body? } — send the key in the x-agent-key header (recommended, keeps it out of logs) or as ?session=<key>',
+      howTo: 'POST /api/agent/proxy { provider, method, path, body? } — send the key in the x-agent-key header (recommended, keeps it out of logs) or as ?session=<key>. Better: POST /api/agent/exchange with that key ONCE → work for 1h under the returned fls_ token (or paste a one-time pair_ code from the dashboard and the link never enters chat at all).',
     },
   }, { headers: { "cache-control": "no-store" } });
 }
