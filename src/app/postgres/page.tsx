@@ -680,9 +680,9 @@ export default function PostgresPage() {
             {/* honest persistence note */}
             <p className="flex items-start gap-2 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-[11px] leading-relaxed text-zinc-500">
               <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-600" />
-              Step progress is saved on the server instance — on this deployed dashboard it resets on cold
-              starts (read-only FS) until Fleet Control itself — first app in the list — completes its own
-              migration. The audit baseline is committed, so app verdicts always persist.
+              Step progress for this dashboard is stored in its own Neon Postgres (first app in the
+              list) — it now survives cold starts. The other apps keep ephemeral file state until their
+              own migration runs; the audit verdicts persist either way via the committed baseline.
             </p>
           </>
         ) : (
