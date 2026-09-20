@@ -22,6 +22,10 @@ import {
   touchSession,
   vercelFetch,
 } from "@/lib/agent-vault";
+import {
+  logSecurityEvent,
+  rateLimit,
+} from "@/lib/security";
 
 export const dynamic = "force-dynamic";
 // serverless safety: fleet checks + upstream API calls can take a while
@@ -44,15 +48,20 @@ const VERCEL_WRITE_PREFIXES = [
 ];
 
 function bad(error: string, status: number) {
-  return NextResponse.json({ ok: false, error }, { status });
+  return NextResponse.json({ ok: false, error }, { status, headers: { "cache-control": "no-store" } });
 }
 
+/**
+ * Key extraction — HEADER FIRST. Capability links keep ?session= for humans
+ * and AI chat flows, but programmatic callers should send x-agent-key so the
+ * key stays out of access logs, CDN logs and browser history entirely.
+ */
 function getKey(request: Request): string | null {
+  const header = request.headers.get("x-agent-key");
+  if (header) return header.trim();
   const url = new URL(request.url);
   const fromQuery = url.searchParams.get("session");
-  if (fromQuery) return fromQuery.trim();
-  const header = request.headers.get("x-agent-key");
-  return header ? header.trim() : null;
+  return fromQuery ? fromQuery.trim() : null;
 }
 
 // ─── ping ────────────────────────────────────────────────────────────────────
@@ -60,9 +69,27 @@ function getKey(request: Request): string | null {
 export async function GET(request: Request) {
   const key = getKey(request);
   const resolved = await resolveSession(key);
-  if ("error" in resolved) return bad(resolved.error, 401);
+  if ("error" in resolved) {
+    await logSecurityEvent({
+      kind: "proxy-auth-failed",
+      detail: `GET ping: ${resolved.error}`,
+      request,
+    });
+    return bad(resolved.error, 401);
+  }
   const { session } = resolved;
   const url = new URL(request.url);
+
+  // per-key abuse cap (in-memory, per warm instance)
+  const rl = rateLimit(`proxy:${session.id}`, 60, 60_000);
+  if (!rl.ok) {
+    await logSecurityEvent({
+      kind: "proxy-rate-limited",
+      detail: `key “${session.label}” exceeded 60 req/min`,
+      request,
+    });
+    return bad(`rate limit — retry in ${rl.retryAfter}s.`, 429);
+  }
 
   const { githubStatus } = await import("@/lib/agent-vault");
   const { vercelStatus } = await import("@/lib/vercel-ops");
@@ -89,9 +116,9 @@ export async function GET(request: Request) {
     providers: { github: gh.connected, vercel: vc.connected },
     usage: {
       callCount: session.callCount,
-      howTo: 'POST /api/agent/proxy?session=<key> { provider, method, path, body? }',
+      howTo: 'POST /api/agent/proxy { provider, method, path, body? } — send the key in the x-agent-key header (recommended, keeps it out of logs) or as ?session=<key>',
     },
-  });
+  }, { headers: { "cache-control": "no-store" } });
 }
 
 // ─── proxy ───────────────────────────────────────────────────────────────────
@@ -99,8 +126,28 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const key = getKey(request);
   const resolved = await resolveSession(key);
-  if ("error" in resolved) return bad(resolved.error, 401);
+  if ("error" in resolved) {
+    // every failed capability attempt lands in the security log — a leak
+    // shows up here (with IP) instead of being discovered via a rogue deploy
+    await logSecurityEvent({
+      kind: "proxy-auth-failed",
+      detail: `POST proxy: ${resolved.error}`,
+      request,
+    });
+    return bad(resolved.error, 401);
+  }
   const { session } = resolved;
+
+  // per-key abuse cap
+  const rl = rateLimit(`proxy:${session.id}`, 60, 60_000);
+  if (!rl.ok) {
+    await logSecurityEvent({
+      kind: "proxy-rate-limited",
+      detail: `key “${session.label}” exceeded 60 req/min`,
+      request,
+    });
+    return bad(`rate limit — retry in ${rl.retryAfter}s.`, 429);
+  }
 
   let body: Record<string, unknown>;
   try {
@@ -120,6 +167,17 @@ export async function POST(request: Request) {
   const path = String(body.path ?? "");
   if (!path.startsWith("/") || path.includes("..") || path.length > 600) {
     return bad("path must start with / and be sane.", 400);
+  }
+  // hard charset gate: upstream base is FIXED (api.github.com / api.vercel.com)
+  // so classic SSRF is impossible; this blocks control chars / header injection
+  // and anything outside the URL-safe set from ever reaching the upstream URL.
+  if (!/^[A-Za-z0-9._~!$&'()*+,;=:@%?\/-]*$/.test(path.slice(1))) {
+    await logSecurityEvent({
+      kind: "proxy-path-rejected",
+      detail: `non-URL-safe path for ${provider}: ${path.slice(0, 80)}`,
+      request,
+    });
+    return bad("path contains characters outside the URL-safe set.", 400);
   }
 
   // scope enforcement
@@ -143,6 +201,11 @@ export async function POST(request: Request) {
       );
     }
     if (/token/i.test(path)) {
+      await logSecurityEvent({
+        kind: "proxy-token-block",
+        detail: `blocked token-endpoint mutation: ${method} ${path.slice(0, 80)}`,
+        request,
+      });
       return bad("mutating token endpoints is blocked.", 403);
     }
   }
@@ -164,7 +227,13 @@ export async function POST(request: Request) {
   });
 
   if (result.status === 0) {
-    return NextResponse.json({ ok: false, error: result.errorText ?? "upstream network error" }, { status: 502 });
+    return NextResponse.json(
+      { ok: false, error: result.errorText ?? "upstream network error" },
+      { status: 502, headers: { "cache-control": "no-store" } },
+    );
   }
-  return NextResponse.json({ ok: result.status < 300, status: result.status, data: result.data });
+  return NextResponse.json(
+    { ok: result.status < 300, status: result.status, data: result.data },
+    { headers: { "cache-control": "no-store" } },
+  );
 }
