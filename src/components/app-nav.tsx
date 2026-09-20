@@ -32,7 +32,7 @@ export function AppNav() {
             Fleet Control
           </span>
           <span className="hidden rounded border border-white/10 bg-white/5 px-1 py-px font-mono text-[9px] text-zinc-500 sm:inline">
-            v11
+            v12
           </span>
         </Link>
 
@@ -45,13 +45,19 @@ export function AppNav() {
                 href={l.href}
                 aria-current={active ? "page" : undefined}
                 title={l.hint}
-                className={`rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-all sm:px-3.5 sm:text-xs ${
+                className={`relative rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-all duration-300 sm:px-3.5 sm:text-xs ${
                   active
-                    ? "bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30"
-                    : "text-zinc-500 hover:bg-white/5 hover:text-zinc-200"
+                    ? "scale-[1.03] bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30"
+                    : "text-zinc-500 hover:scale-[1.02] hover:bg-white/5 hover:text-zinc-200"
                 }`}
               >
                 {l.label}
+                <span
+                  aria-hidden="true"
+                  className={`absolute -bottom-0.5 left-1/2 h-0.5 -translate-x-1/2 rounded-full bg-emerald-400 transition-all duration-300 ${
+                    active ? "w-1/2 opacity-90 shadow-[0_0_6px_rgba(52,211,153,0.8)]" : "w-0 opacity-0"
+                  }`}
+                />
               </Link>
             );
           })}
