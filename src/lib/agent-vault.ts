@@ -15,7 +15,7 @@
 
 import { promises as fs } from "fs";
 import path from "path";
-import { randomBytes } from "crypto";
+import { createHash, randomBytes, timingSafeEqual } from "crypto";
 
 const GITHUB_AUTH_PATH = path.join(process.cwd(), "db", "github-auth.json");
 const SESSIONS_PATH = path.join(process.cwd(), "db", "agent-sessions.json");
@@ -241,25 +241,52 @@ export async function revokeSession(id: string): Promise<boolean> {
 }
 
 /**
+ * Parse one FLEET_AGENT_KEYS entry. Entries are comma-separated and look like
+ *   flk_<hex>                          → scopes fall back to FLEET_AGENT_SCOPES
+ *   flk_<hex>:github:read,vercel:read  → fine-grained per-key scopes
+ * (keys themselves never contain ":", so the first colon is the separator —
+ * this is what makes permanent env keys narrow-scope instead of all-powerful,
+ * closing the "env keys are full-scope" gap flagged by the security review.)
+ */
+function parseKeyEntry(entry: string): { key: string; scopeSpec?: string } {
+  const idx = entry.indexOf(":");
+  if (idx === -1) return { key: entry };
+  return { key: entry.slice(0, idx), scopeSpec: entry.slice(idx + 1) };
+}
+
+function parseScopes(spec: string): AgentScope[] {
+  return spec
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s): s is AgentScope => (ALL_SCOPES as string[]).includes(s));
+}
+
+/**
  * Serverless fallback for deployed instances: keys from FLEET_AGENT_KEYS
- * (comma-separated flk_ keys) act as always-valid full links with the
- * scopes in FLEET_AGENT_SCOPES (default: all four).
+ * (comma-separated, optionally `key:scope1,scope2` per entry) act as
+ * always-valid links. Bare keys get the scopes in FLEET_AGENT_SCOPES
+ * (default: all four).
  */
 function envSession(key: string): AgentSession | null {
-  const keys = (process.env.FLEET_AGENT_KEYS ?? "")
+  const entries = (process.env.FLEET_AGENT_KEYS ?? "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  if (!keys.includes(key)) return null;
-  const scopes = (process.env.FLEET_AGENT_SCOPES ??
-    "github:read,github:write,vercel:read,vercel:write")
-    .split(",")
-    .map((s) => s.trim()) as AgentScope[];
+  const matched = entries
+    .map(parseKeyEntry)
+    .find((e) => e.key === key);
+  if (!matched) return null;
+  const scopes = matched.scopeSpec
+    ? parseScopes(matched.scopeSpec)
+    : parseScopes(
+        process.env.FLEET_AGENT_SCOPES ??
+          "github:read,github:write,vercel:read,vercel:write",
+      );
   return {
     id: "env_agent",
     key,
     label: "env agent link",
-    scopes: scopes.filter((s) => ALL_SCOPES.includes(s)),
+    scopes,
     createdAt: new Date(0).toISOString(),
     expiresAt: new Date(Date.now() + 3650 * 86400_000).toISOString(),
     lastUsedAt: null,
@@ -276,7 +303,17 @@ export async function resolveSession(
     return { error: "missing or malformed session key — send the agent link" };
   }
   const sessions = await readSessions();
-  const session = sessions.find((s) => s.key === key);
+  // timing-safe scan: never short-circuit on key bytes (defense in depth —
+  // a 48-hex-char key is unguessable anyway, but comparisons shouldn't leak)
+  let session: AgentSession | undefined;
+  for (const s of sessions) {
+    const a = createHash("sha256").update(s.key).digest();
+    const b = createHash("sha256").update(key).digest();
+    if (timingSafeEqual(a, b)) {
+      session = s;
+      break;
+    }
+  }
   if (session) {
     if (session.revoked) return { error: "this agent link was revoked by the owner" };
     if (new Date(session.expiresAt).getTime() < Date.now()) {
