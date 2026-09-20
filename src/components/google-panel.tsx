@@ -34,6 +34,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useChallengeAction } from "@/lib/challenge-client";
 import {
   type GscCallResult,
   type GscOutcome,
@@ -148,6 +149,8 @@ export function GoogleIndexingPanel({
   const [submitResults, setSubmitResults] = useState<GscOutcome[] | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
   const [gscLog, setGscLog] = useState<GscLogEntry[]>([]);
+  // destructive op → two-step confirmation (one-time challenge token)
+  const challenge = useChallengeAction();
 
   const loadGscLog = useCallback(async () => {
     try {
@@ -298,18 +301,20 @@ export function GoogleIndexingPanel({
   };
 
   const disconnect = async () => {
-    try {
-      await fetch("/api/gsc", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "disconnect" }),
-      });
-      const { toast } = await import("sonner");
-      toast.success("Google connection removed from the server");
-      await loadGscLog();
-    } catch {
-      /* non-fatal */
-    }
+    await challenge.trigger("gsc-disconnect", async (confirmToken) => {
+      try {
+        await fetch("/api/gsc", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "disconnect", confirmToken }),
+        });
+        const { toast } = await import("sonner");
+        toast.success("Google connection removed from the server");
+        await loadGscLog();
+      } catch {
+        /* non-fatal */
+      }
+    });
   };
 
   // which sitemaps does google already know about?
@@ -549,9 +554,16 @@ export function GoogleIndexingPanel({
               size="sm"
               variant="ghost"
               onClick={() => void disconnect()}
-              className="mt-2 h-7 gap-1 px-2 text-[11px] text-zinc-500 hover:bg-white/5 hover:text-rose-300"
+              className={`mt-2 h-7 gap-1 px-2 text-[11px] transition-colors ${
+                challenge.armedOp === "gsc-disconnect"
+                  ? "bg-amber-500/15 text-amber-300 hover:bg-amber-500/20"
+                  : "text-zinc-500 hover:bg-white/5 hover:text-rose-300"
+              }`}
             >
-              <Unplug className="h-3 w-3" /> disconnect
+              <Unplug className="h-3 w-3" />{" "}
+              {challenge.armedOp === "gsc-disconnect"
+                ? `confirm (${challenge.secondsLeft}s)`
+                : "disconnect"}
             </Button>
           </div>
         ) : null}
