@@ -13,13 +13,9 @@
 // db/autopilot*.json (local) — on serverless the defaults apply (auto-heal ON)
 // and the guard above keeps behaviour safe regardless.
 
-import { promises as fs } from "fs";
-import path from "path";
-
 import { GITHUB_OWNER } from "@/lib/fleet";
+import { readState, writeState } from "@/lib/pg-state";
 
-const CFG_PATH = path.join(process.cwd(), "db", "autopilot.json");
-const LOG_PATH = path.join(process.cwd(), "db", "autopilot-log.json");
 const MAX_LOG = 80;
 const COOLDOWN_MS = 3 * 60 * 60 * 1000; // one heal attempt per project per 3h
 const FLEET_SUFFIX = ".abdelhadygabriel.me";
@@ -42,41 +38,28 @@ export interface AutoPilotAction {
 
 export async function readAutoPilotConfig(): Promise<AutoPilotConfig> {
   try {
-    const raw = await fs.readFile(CFG_PATH, "utf8");
-    const parsed = JSON.parse(raw) as Partial<AutoPilotConfig>;
-    return { autoHeal: parsed.autoHeal !== false };
+    const parsed = await readState<Partial<AutoPilotConfig>>("autopilot");
+    return { autoHeal: parsed?.autoHeal !== false };
   } catch {
     return { ...DEFAULT_CONFIG };
   }
 }
 
 export async function writeAutoPilotConfig(cfg: AutoPilotConfig): Promise<void> {
-  try {
-    await fs.writeFile(CFG_PATH, JSON.stringify(cfg, null, 2), { mode: 0o600 });
-  } catch {
-    /* read-only FS (serverless) — default ON applies, stateless guard keeps it safe */
-  }
+  // Postgres (durable) with file fallback — the switch now survives cold starts
+  await writeState("autopilot", cfg);
 }
 
 export async function readAutoPilotLog(): Promise<AutoPilotAction[]> {
-  try {
-    const raw = await fs.readFile(LOG_PATH, "utf8");
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as AutoPilotAction[]) : [];
-  } catch {
-    return [];
-  }
+  const parsed = await readState<AutoPilotAction[]>("autopilot-log");
+  return Array.isArray(parsed) ? parsed : [];
 }
 
 async function appendAutoPilotLog(entries: AutoPilotAction[]): Promise<void> {
   if (entries.length === 0) return;
   const stamped = entries.map((e) => ({ ...e, ts: new Date().toISOString() }));
   const all = [...stamped, ...(await readAutoPilotLog())].slice(0, MAX_LOG);
-  try {
-    await fs.writeFile(LOG_PATH, JSON.stringify(all, null, 2), "utf8");
-  } catch {
-    /* best-effort */
-  }
+  await writeState("autopilot-log", all);
 }
 
 // ─── host → serving Vercel project (5-min module cache) ─────────────────────
