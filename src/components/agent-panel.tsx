@@ -161,6 +161,7 @@ export function AgentAccessPanel() {
   const [minting, setMinting] = useState(false);
   const [minted, setMinted] = useState<MintedLink | null>(null);
   const [revoking, setRevoking] = useState<string | null>(null);
+  const [promoting, setPromoting] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -279,6 +280,40 @@ export function AgentAccessPanel() {
       await load();
     } finally {
       setRevoking(null);
+    }
+  };
+
+  /** Copy this freshly-minted key into the deployed instance's FLEET_AGENT_KEYS
+   *  + redeploy production, so the link survives serverless cold starts. */
+  const promote = async () => {
+    if (!minted) return;
+    setPromoting(true);
+    try {
+      const res = await fetch("/api/selfops", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "promote", key: minted.key }),
+      });
+      const json = (await res.json()) as {
+        ok: boolean;
+        updated?: boolean;
+        redeployUid?: string;
+        error?: string;
+      };
+      if (json.ok) {
+        toast.success(
+          json.updated
+            ? "Key copied to the deployment env — production is redeploying, link is cold-start-proof in ~1 min"
+            : "Key is already permanent on the deployment",
+          { duration: 8000 },
+        );
+      } else {
+        toast.error(json.error ?? "could not promote the key", { duration: 8000 });
+      }
+    } catch {
+      toast.error("Network error while promoting the key");
+    } finally {
+      setPromoting(false);
     }
   };
 
@@ -596,6 +631,28 @@ export function AgentAccessPanel() {
                 >
                   <Copy className="h-3.5 w-3.5" /> Copy link
                 </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="sm"
+                      onClick={() => void promote()}
+                      disabled={promoting}
+                      className="h-9 gap-1.5 bg-amber-500/15 px-2.5 text-xs text-amber-300 ring-1 ring-amber-500/30 transition-all hover:bg-amber-500/25 hover:text-amber-200"
+                    >
+                      {promoting ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                      )}
+                      Make permanent
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-56 border border-white/10 bg-zinc-900 text-[10px] leading-relaxed text-zinc-300">
+                    Copies this key into the deployed instance&apos;s env and redeploys
+                    production — the link then survives serverless cold starts (env keys are
+                    full-scope, permanent).
+                  </TooltipContent>
+                </Tooltip>
                 <Button
                   size="sm"
                   variant="ghost"
