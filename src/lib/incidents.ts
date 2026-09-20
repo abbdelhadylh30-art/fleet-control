@@ -1,7 +1,7 @@
-import { promises as fs } from "fs";
-import path from "path";
+import { readState, writeState } from "@/lib/pg-state";
+import { readUptime } from "@/lib/uptime";
 
-const INC_PATH = path.join(process.cwd(), "db", "incidents.json");
+const KEY = "incidents";
 const MAX_KEPT = 50;
 
 export interface Incident {
@@ -17,13 +17,8 @@ export interface IncidentView {
 }
 
 export async function readIncidents(): Promise<Incident[]> {
-  try {
-    const raw = await fs.readFile(INC_PATH, "utf8");
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as Incident[]) : [];
-  } catch {
-    return [];
-  }
+  const parsed = await readState<Incident[]>(KEY);
+  return Array.isArray(parsed) ? parsed : [];
 }
 
 /**
@@ -53,16 +48,12 @@ export async function updateIncidents(
     }
   }
 
-  const trimmed = all.slice(-MAX_KEPT);
-  try {
-    await fs.writeFile(INC_PATH, JSON.stringify(trimmed, null, 2), "utf8");
-  } catch {
-    /* read-only FS (serverless) — incidents are best-effort */
-  }
+  // Postgres (durable) with file fallback — incident history survives cold starts
+  await writeState(KEY, all.slice(-MAX_KEPT));
 
   return {
-    active: trimmed.filter((i) => i.recoveredAt === null),
-    recent: trimmed
+    active: all.filter((i) => i.recoveredAt === null),
+    recent: all
       .filter((i) => i.recoveredAt !== null)
       .slice(-10)
       .reverse(),
@@ -71,11 +62,7 @@ export async function updateIncidents(
 
 export async function buildPrevStates(): Promise<Record<string, boolean | undefined>> {
   try {
-    const raw = await fs.readFile(
-      path.join(process.cwd(), "db", "uptime-log.json"),
-      "utf8",
-    );
-    const store = JSON.parse(raw) as Record<string, Array<{ ok: boolean }>>;
+    const store = await readUptime();
     const out: Record<string, boolean | undefined> = {};
     for (const [host, samples] of Object.entries(store)) {
       out[host] = samples.at(-1)?.ok;
