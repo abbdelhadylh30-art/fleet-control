@@ -176,6 +176,11 @@ const EXPECTED: Array<{ domain: string; project: string }> = [
   { domain: `dev${FLEET_DOMAIN_SUFFIX}`, project: "abdelhady-gabriel" },
 ];
 
+/** host → project it SHOULD be served by (the auto-pilot's re-attach map). */
+export const EXPECTED_PROJECTS: Record<string, string> = Object.fromEntries(
+  EXPECTED.map((e) => [e.domain, e.project]),
+);
+
 function isFleetDomain(domain: string): boolean {
   return domain === APEX || domain.endsWith(FLEET_DOMAIN_SUFFIX);
 }
@@ -239,11 +244,16 @@ export async function auditVercelDomains(): Promise<VercelAuditResult> {
   };
 }
 
-/** Move a fleet domain from its current project to `toProject` (guarded). */
+/**
+ * Move a fleet domain from its current project to `toProject` (guarded).
+ * Idempotent: if the domain is already on the target, returns ok without
+ * touching anything — and a 409 during ADD is re-probed, because "already
+ * attached to the expected project" is success, not failure.
+ */
 export async function reattachVercelDomain(
   domain: string,
   toProject: string,
-): Promise<{ ok: boolean; error?: string; moved?: { from: string | null; to: string } }> {
+): Promise<{ ok: boolean; error?: string; moved?: { from: string | null; to: string }; alreadyCorrect?: boolean }> {
   if (!isFleetDomain(domain)) {
     return { ok: false, error: "Blocked — only *.abdelhadygabriel.me domains can be managed here." };
   }
@@ -252,6 +262,15 @@ export async function reattachVercelDomain(
   }
   const store = await readToken();
   if (!store) return { ok: false, error: "Connect a Vercel token first." };
+
+  // DIRECT probe: is the domain already on the target project? (a flaky
+  // parallel audit must never trigger a pointless domain move)
+  const probe = await vfetch(
+    `/v9/projects/${encodeURIComponent(toProject)}/domains/${encodeURIComponent(domain)}`,
+  );
+  if (probe.status === 200) {
+    return { ok: true, alreadyCorrect: true, moved: { from: toProject, to: toProject } };
+  }
 
   // find current holder among the user's projects
   const audit = await auditVercelDomains();
@@ -278,6 +297,14 @@ export async function reattachVercelDomain(
     body: { name: domain },
   });
   if (add.status !== 200) {
+    // 409 re-probe: if the domain is on the target NOW, we're done — the
+    // earlier detach+attach race released late, but the end state is correct.
+    const confirm = await vfetch(
+      `/v9/projects/${encodeURIComponent(toProject)}/domains/${encodeURIComponent(domain)}`,
+    );
+    if (confirm.status === 200) {
+      return { ok: true, moved: { from, to: toProject } };
+    }
     const err = add.body as { error?: { code?: string; message?: string } } | null;
     const code = err?.error?.code;
     const msg = err?.error?.message ?? add.errorText ?? "";
