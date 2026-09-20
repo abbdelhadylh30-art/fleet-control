@@ -266,7 +266,9 @@ function SiteCard({
   return (
     <Card
       style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }}
-      className={`fade-up-item group flex flex-col border-white/5 bg-zinc-900/60 backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:bg-zinc-900/80 hover:shadow-xl ${toneHover}`}
+      className={`fade-up-item group flex flex-col border-white/5 bg-zinc-900/60 backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:bg-zinc-900/80 hover:shadow-xl ${
+        site.self ? "ring-1 ring-emerald-500/20" : ""
+      } ${toneHover}`}
     >
       <CardHeader className="p-5 pb-3">
         <div className="min-w-0">
@@ -274,6 +276,14 @@ function SiteCard({
             <h3 className="truncate font-semibold tracking-tight">
               {site.label}
             </h3>
+            {site.self ? (
+              <Badge
+                variant="outline"
+                className="shrink-0 border-emerald-500/30 bg-emerald-500/10 px-1.5 text-[10px] font-medium text-emerald-300"
+              >
+                SELF
+              </Badge>
+            ) : null}
             <Badge
               variant="outline"
               className="shrink-0 border-white/10 px-1.5 text-[10px] text-zinc-400"
@@ -1338,7 +1348,7 @@ export default function Home() {
                 ) : null}
               </h1>
               <p className="truncate text-[11px] text-zinc-500">
-                abdelhadygabriel.me · 13 sites · IndexNow pipeline
+                abdelhadygabriel.me · {data?.summary.total ?? 14} sites · IndexNow pipeline
               </p>
             </div>
           </div>
