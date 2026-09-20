@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FLEET, INDEXNOW_KEY } from "@/lib/fleet";
 import { appendLog, readLog, type LogEntry } from "@/lib/activity-log";
+import { requireAdmin } from "@/lib/security";
 
 export const dynamic = "force-dynamic";
 // serverless safety: fleet checks + upstream API calls can take a while
@@ -36,7 +37,11 @@ async function collectUrls(host: string): Promise<string[]> {
   return [...urls].slice(0, 50);
 }
 
+// POST = trigger IndexNow submissions → admin-gated (spam-able upstream calls)
 export async function POST(req: NextRequest) {
+  const gate = requireAdmin(req);
+  if (gate) return gate;
+
   const body = (await req.json().catch(() => ({}))) as { host?: string };
   const hostParam =
     typeof body.host === "string" && body.host ? body.host : "all";
