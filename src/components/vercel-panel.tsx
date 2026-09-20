@@ -87,7 +87,8 @@ export function VercelOpsPanel() {
   const [moveResults, setMoveResults] = useState<
     Array<{ domain: string; ok: boolean; detail: string }>
   >([]);
-  // destructive ops → two-step confirmation (one-time challenge tokens)
+  const [disconnecting, setDisconnecting] = useState(false);
+  // domain moves still reshape production → two-step confirmation (challenge)
   const challenge = useChallengeAction();
 
   const loadStatus = useCallback(async () => {
@@ -129,22 +130,30 @@ export function VercelOpsPanel() {
   };
 
   const disconnect = async () => {
-    await challenge.trigger("vercel-disconnect", async (confirmToken) => {
-      try {
-        await fetch("/api/vercel", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ action: "disconnect", confirmToken }),
-        });
+    setDisconnecting(true);
+    try {
+      const res = await fetch("/api/vercel", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "disconnect" }),
+      });
+      if (!res.ok) {
+        const json = (await res.json().catch(() => ({}))) as { error?: string };
         const { toast } = await import("sonner");
-        toast.success("Vercel token removed from the server");
-        setAudit(null);
-        setMoveResults([]);
-        await loadStatus();
-      } catch {
-        /* non-fatal */
+        toast.error(json.error ?? `Disconnect failed (HTTP ${res.status})`);
+        return;
       }
-    });
+      const { toast } = await import("sonner");
+      toast.success("Vercel token removed from the server");
+      setAudit(null);
+      setMoveResults([]);
+      await loadStatus();
+    } catch {
+      const { toast } = await import("sonner");
+      toast.error("Network error while disconnecting");
+    } finally {
+      setDisconnecting(false);
+    }
   };
 
   const runAudit = async () => {
@@ -318,17 +327,16 @@ export function VercelOpsPanel() {
           <Button
             size="sm"
             variant="ghost"
+            disabled={disconnecting}
             onClick={() => void disconnect()}
-            className={`h-8 gap-1 px-2 text-[11px] transition-colors ${
-              challenge.armedOp === "vercel-disconnect"
-                ? "bg-amber-500/15 text-amber-300 hover:bg-amber-500/20"
-                : "text-zinc-500 hover:bg-white/5 hover:text-rose-300"
-            }`}
+            className="h-8 gap-1 px-2 text-[11px] text-zinc-500 transition-colors hover:bg-white/5 hover:text-rose-300"
           >
-            <Unplug className="h-3 w-3" />{" "}
-            {challenge.armedOp === "vercel-disconnect"
-              ? `confirm (${challenge.secondsLeft}s)`
-              : "disconnect"}
+            {disconnecting ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Unplug className="h-3 w-3" />
+            )}{" "}
+            {disconnecting ? "disconnecting…" : "disconnect"}
           </Button>
           <span className="text-[10px] text-zinc-600">
             {status.savedAt ? `token saved ${relativeTime(status.savedAt)}` : ""}
