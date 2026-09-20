@@ -34,7 +34,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useChallengeAction } from "@/lib/challenge-client";
 import {
   type GscCallResult,
   type GscOutcome,
@@ -144,13 +143,12 @@ export function GoogleIndexingPanel({
   const [checking, setChecking] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
   const [statusData, setStatusData] = useState<GscSitemapInfo[] | null>(null);
   const [submitResults, setSubmitResults] = useState<GscOutcome[] | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
   const [gscLog, setGscLog] = useState<GscLogEntry[]>([]);
-  // destructive op → two-step confirmation (one-time challenge token)
-  const challenge = useChallengeAction();
 
   const loadGscLog = useCallback(async () => {
     try {
@@ -301,20 +299,28 @@ export function GoogleIndexingPanel({
   };
 
   const disconnect = async () => {
-    await challenge.trigger("gsc-disconnect", async (confirmToken) => {
-      try {
-        await fetch("/api/gsc", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ action: "disconnect", confirmToken }),
-        });
+    setDisconnecting(true);
+    try {
+      const res = await fetch("/api/gsc", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "disconnect" }),
+      });
+      if (!res.ok) {
+        const json = (await res.json().catch(() => ({}))) as { error?: string };
         const { toast } = await import("sonner");
-        toast.success("Google connection removed from the server");
-        await loadGscLog();
-      } catch {
-        /* non-fatal */
+        toast.error(json.error ?? `Disconnect failed (HTTP ${res.status})`);
+        return;
       }
-    });
+      const { toast } = await import("sonner");
+      toast.success("Google connection removed from the server");
+      await loadGscLog();
+    } catch {
+      const { toast } = await import("sonner");
+      toast.error("Network error while disconnecting");
+    } finally {
+      setDisconnecting(false);
+    }
   };
 
   // which sitemaps does google already know about?
@@ -553,17 +559,16 @@ export function GoogleIndexingPanel({
             <Button
               size="sm"
               variant="ghost"
+              disabled={disconnecting}
               onClick={() => void disconnect()}
-              className={`mt-2 h-7 gap-1 px-2 text-[11px] transition-colors ${
-                challenge.armedOp === "gsc-disconnect"
-                  ? "bg-amber-500/15 text-amber-300 hover:bg-amber-500/20"
-                  : "text-zinc-500 hover:bg-white/5 hover:text-rose-300"
-              }`}
+              className="mt-2 h-7 gap-1 px-2 text-[11px] text-zinc-500 transition-colors hover:bg-white/5 hover:text-rose-300"
             >
-              <Unplug className="h-3 w-3" />{" "}
-              {challenge.armedOp === "gsc-disconnect"
-                ? `confirm (${challenge.secondsLeft}s)`
-                : "disconnect"}
+              {disconnecting ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Unplug className="h-3 w-3" />
+              )}{" "}
+              {disconnecting ? "disconnecting…" : "disconnect"}
             </Button>
           </div>
         ) : null}
