@@ -15,7 +15,7 @@
 
 import { promises as fs } from "fs";
 import path from "path";
-import { createHash, randomBytes, timingSafeEqual } from "crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "crypto";
 
 const GITHUB_AUTH_PATH = path.join(process.cwd(), "db", "github-auth.json");
 const SESSIONS_PATH = path.join(process.cwd(), "db", "agent-sessions.json");
@@ -316,12 +316,35 @@ function envSession(key: string): AgentSession | null {
   };
 }
 
-/** Resolve a capability key → live session (or null with a reason). */
+/** Resolve a capability key → live session (or null with a reason).
+ * Accepts `flk_…` links (store / env) AND `fls_…` derived sessions — the
+ * 1-hour handshake tokens minted by /api/agent/exchange. */
 export async function resolveSession(
   key: string | null,
 ): Promise<{ session: AgentSession } | { error: string }> {
-  if (!key || !key.startsWith("flk_")) {
+  if (!key || (!key.startsWith("flk_") && !key.startsWith("fls_"))) {
     return { error: "missing or malformed session key — send the agent link" };
+  }
+  if (key.startsWith("fls_")) {
+    const p = verifyDerivedToken(key);
+    if (!p) return { error: "invalid or expired derived session — exchange again" };
+    const parent = await findParentByHash(p.ph);
+    if (!parent) return { error: "parent link is gone — this derived session is dead" };
+    const scopes = p.sc.filter((s) => parent.scopes.includes(s));
+    if (scopes.length === 0) return { error: "derived session has no usable scopes" };
+    return {
+      session: {
+        id: `derived_${p.jti}`,
+        key,
+        label: `derived session · ${parent.label}`,
+        scopes,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(p.exp).toISOString(),
+        lastUsedAt: null,
+        callCount: 0,
+        revoked: false,
+      },
+    };
   }
   const sessions = await readSessions();
   // timing-safe scan: never short-circuit on key bytes (defense in depth —
@@ -354,6 +377,243 @@ export async function touchSession(id: string): Promise<void> {
   s.lastUsedAt = new Date().toISOString();
   s.callCount += 1;
   await writeSessions(sessions);
+}
+
+// ─── derived sessions + pairing codes (stateless HMAC — cold-start-proof) ───
+//
+// The SESSION HANDOFF pattern (user's idea, third round of the security
+// review): the long-lived agent link becomes a BOOTSTRAP secret, not the
+// working credential. Two tiers:
+//
+//   1. EXCHANGE — present a valid link (or a pair code) → get a 1-hour
+//      derived session `fls_<payload>.<sig>`. All work happens under the
+//      short-lived token; the link can stay out of URLs and chat from then
+//      on.
+//   2. PAIRING — the dashboard (admin-gated) shows a ONE-TIME `pair_<…>`
+//      code bound to a parent link, valid 10 minutes. Paste ONLY the code
+//      in chat — the link itself never enters the transcript.
+//
+// Design notes (all deliberate):
+//   • Stateless: HMAC-signed {parentHash, scopes, exp} — any lambda instance
+//     can verify without shared storage, so derived sessions survive cold
+//     starts (the exact failure mode of FS-backed minted links).
+//   • The parent key is NEVER embedded — only sha256(parentKey)[0:32]. A
+//     leaked fls_ token does NOT leak the parent.
+//   • Every verification re-resolves the parent from the live store/env —
+//     revoking or rotating the parent kills ALL derived sessions instantly.
+//   • Scopes are intersected with the parent's at verify time — a derived
+//     token can never out-scope its parent.
+//   • Pair codes are one-time via a per-warm-instance consumed ledger
+//     (best-effort on serverless, same honesty as the challenge flow) and
+//     die in 10 minutes regardless.
+
+const DERIVED_TTL_MS = 60 * 60_000; // 1 hour of work per handshake
+const PAIR_TTL_MS = 10 * 60_000; // one-time code lives 10 minutes
+
+function b64url(input: string | Buffer): string {
+  return Buffer.from(input).toString("base64url");
+}
+
+/** Token signing secret — dedicated env if set, else the agent keys themselves
+ * (always present on the deployed instance), else the admin gate secret. */
+function derivedSecret(): Buffer {
+  const basis =
+    process.env.FLEET_AGENT_SESSION_SECRET ||
+    process.env.FLEET_AGENT_KEYS ||
+    process.env.FLEET_ADMIN_PASSWORD ||
+    "open";
+  return createHash("sha256").update(`fleet-derived:${basis}`).digest();
+}
+
+/** Parents are referenced by sha256(key) prefix — never by plaintext. */
+function parentHash(parentKey: string): string {
+  return createHash("sha256").update(parentKey).digest("hex").slice(0, 32);
+}
+
+function hintOf(key: string): string {
+  return key.length > 12 ? `flk_…${key.slice(-4)}` : "flk_…";
+}
+
+interface ParentCandidate {
+  key: string;
+  scopes: AgentScope[];
+  label: string;
+}
+
+async function listParentCandidates(): Promise<ParentCandidate[]> {
+  const sessions = await readSessions();
+  const out: ParentCandidate[] = sessions
+    .filter((s) => !s.revoked && new Date(s.expiresAt).getTime() > Date.now())
+    .map((s) => ({ key: s.key, scopes: s.scopes, label: s.label }));
+  for (const entry of splitKeyEntries(process.env.FLEET_AGENT_KEYS ?? "")) {
+    const parsed = parseKeyEntry(entry);
+    const es = envSession(parsed.key);
+    if (es) out.push({ key: es.key, scopes: es.scopes, label: es.label });
+  }
+  return out;
+}
+
+async function findParentByHash(ph: string): Promise<ParentCandidate | null> {
+  const wanted = Buffer.from(ph, "hex");
+  for (const c of await listParentCandidates()) {
+    const h = Buffer.from(parentHash(c.key), "hex");
+    if (h.length === wanted.length && timingSafeEqual(h, wanted)) return c;
+  }
+  return null;
+}
+
+async function findParentByKey(parentKey: string): Promise<ParentCandidate | null> {
+  const wanted = createHash("sha256").update(parentKey).digest();
+  for (const c of await listParentCandidates()) {
+    const h = createHash("sha256").update(c.key).digest();
+    if (timingSafeEqual(h, wanted)) return c;
+  }
+  return null;
+}
+
+function hmacSign(payload: string): string {
+  return createHmac("sha256", derivedSecret()).update(payload).digest("base64url");
+}
+
+function hmacCheck(payload: string, sig: string): boolean {
+  const a = createHash("sha256").update(sig).digest();
+  const b = createHash("sha256").update(hmacSign(payload)).digest();
+  return timingSafeEqual(a, b);
+}
+
+export interface DerivedToken {
+  token: string;
+  expiresAt: string;
+  scopes: AgentScope[];
+  parentHint: string;
+}
+
+/** Mint a 1-hour derived session bound to a parent link. */
+export async function mintDerivedSession(
+  parentKey: string,
+  requestedScopes?: string[],
+): Promise<DerivedToken | { error: string }> {
+  const parent = await findParentByKey(parentKey);
+  if (!parent) return { error: "unknown, expired or revoked parent link" };
+  const scopes = (
+    requestedScopes?.length
+      ? requestedScopes.filter(
+          (s): s is AgentScope =>
+            (ALL_SCOPES as string[]).includes(s) && parent.scopes.includes(s as AgentScope),
+        )
+      : parent.scopes
+  ).filter((s, i, a) => a.indexOf(s) === i);
+  if (scopes.length === 0) return { error: "no requested scope is granted by the parent link" };
+  const exp = Date.now() + DERIVED_TTL_MS;
+  const payload = b64url(
+    JSON.stringify({
+      v: 1,
+      ph: parentHash(parentKey),
+      sc: scopes,
+      exp,
+      jti: randomBytes(8).toString("hex"),
+    }),
+  );
+  return {
+    token: `fls_${payload}.${hmacSign(payload)}`,
+    expiresAt: new Date(exp).toISOString(),
+    scopes,
+    parentHint: hintOf(parent.key),
+  };
+}
+
+interface DerivedPayload {
+  v: number;
+  ph: string;
+  sc: AgentScope[];
+  exp: number;
+  jti: string;
+}
+
+function verifyDerivedToken(token: string): DerivedPayload | null {
+  if (!token.startsWith("fls_")) return null;
+  const body = token.slice(4);
+  const dot = body.indexOf(".");
+  if (dot <= 0) return null;
+  const payload = body.slice(0, dot);
+  if (!hmacCheck(payload, body.slice(dot + 1))) return null;
+  try {
+    const p = JSON.parse(Buffer.from(payload, "base64url").toString()) as DerivedPayload;
+    if (p.v !== 1 || typeof p.exp !== "number" || p.exp < Date.now()) return null;
+    if (typeof p.ph !== "string" || !Array.isArray(p.sc) || typeof p.jti !== "string") return null;
+    return p;
+  } catch {
+    return null;
+  }
+}
+
+export interface PairCode {
+  code: string;
+  expiresAt: string;
+  parentHint: string;
+}
+
+/** Mint a one-time pairing code. Default parent: the permanent env key (the
+ * workhorse on deployed instances), else the newest live minted link. */
+export async function mintPairCode(parentKey?: string): Promise<PairCode | { error: string }> {
+  let parent: ParentCandidate | null = null;
+  if (parentKey) {
+    parent = await findParentByKey(parentKey);
+    if (!parent) return { error: "unknown, expired or revoked parent link" };
+  } else {
+    const cands = await listParentCandidates();
+    parent = cands.find((c) => c.label === "env agent link") ?? cands[0] ?? null;
+    if (!parent) return { error: "no live agent link or env key to pair against" };
+  }
+  const exp = Date.now() + PAIR_TTL_MS;
+  const payload = b64url(
+    JSON.stringify({ v: 1, ph: parentHash(parent.key), exp, jti: randomBytes(6).toString("hex") }),
+  );
+  return {
+    code: `pair_${payload}.${hmacSign(payload)}`,
+    expiresAt: new Date(exp).toISOString(),
+    parentHint: hintOf(parent.key),
+  };
+}
+
+const consumedPairJtis = new Set<string>(); // one-time ledger (per warm instance)
+
+/** Verify a pairing code → parent hash (or reason). Single-use, 10 min TTL. */
+export async function verifyPairCode(code: string): Promise<{ ph: string } | { error: string }> {
+  if (!code.startsWith("pair_")) return { error: "malformed pairing code" };
+  const body = code.slice(5);
+  const dot = body.indexOf(".");
+  if (dot <= 0) return { error: "malformed pairing code" };
+  const payload = body.slice(0, dot);
+  if (!hmacCheck(payload, body.slice(dot + 1))) return { error: "invalid pairing code" };
+  try {
+    const p = JSON.parse(Buffer.from(payload, "base64url").toString()) as {
+      v: number;
+      ph: string;
+      exp: number;
+      jti: string;
+    };
+    if (p.v !== 1 || typeof p.exp !== "number" || p.exp < Date.now()) {
+      return { error: "pairing code expired — generate a new one in the dashboard" };
+    }
+    if (consumedPairJtis.has(p.jti)) {
+      return { error: "pairing code already used — it is one-time" };
+    }
+    consumedPairJtis.add(p.jti);
+    return { ph: p.ph };
+  } catch {
+    return { error: "invalid pairing code" };
+  }
+}
+
+/** Exchange a verified pair-code parent hash → 1h derived session. */
+export async function mintDerivedFromPairHash(
+  ph: string,
+  requestedScopes?: string[],
+): Promise<DerivedToken | { error: string }> {
+  const parent = await findParentByHash(ph);
+  if (!parent) return { error: "the paired link is gone or expired" };
+  return mintDerivedSession(parent.key, requestedScopes);
 }
 
 // ─── activity audit log ──────────────────────────────────────────────────────
