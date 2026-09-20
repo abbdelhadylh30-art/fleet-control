@@ -14,22 +14,26 @@ import {
   gscAuthStatus,
   saveGscAuth,
 } from "@/lib/gsc-auth";
+import { requireAdmin, requireChallenge } from "@/lib/security";
 
 export const dynamic = "force-dynamic";
 
 // GET → local submission history + connect-once status (no secrets, safe to poll)
 export async function GET() {
   const [entries, auth] = await Promise.all([readGscLog(), gscAuthStatus()]);
-  return NextResponse.json({ entries, auth });
+  return NextResponse.json({ entries, auth }, { headers: { "cache-control": "no-store" } });
 }
 
-// POST actions:
+// POST actions (admin-gated; disconnect is destructive → challenge):
 //   { action: "save-auth", clientId, clientSecret, refreshToken } → connect once
-//   { action: "disconnect" }                                      → forget stored auth
+//   { action: "disconnect", confirmToken }                        → forget stored auth
 //   { token?, action: "status" }                                  → list sitemaps in GSC
 //   { token?, action: "submit", sitemaps: [] }                    → bulk-PUT sitemaps
 // status/submit use the manual token when provided, else the stored refresh token.
 export async function POST(req: Request) {
+  const gate = requireAdmin(req);
+  if (gate) return gate;
+
   let body: {
     token?: string;
     action?: string;
@@ -37,6 +41,7 @@ export async function POST(req: Request) {
     clientId?: string;
     clientSecret?: string;
     refreshToken?: string;
+    confirmToken?: string;
   };
   try {
     body = await req.json();
@@ -85,8 +90,10 @@ export async function POST(req: Request) {
     });
   }
 
-  // ── forget stored credentials ────────────────────────────────────────────
+  // ── forget stored credentials (destructive → challenge) ───────────────
   if (body.action === "disconnect") {
+    const ch = requireChallenge(body as Record<string, unknown>, "gsc-disconnect");
+    if (ch) return ch;
     await disconnectGscAuth();
     return NextResponse.json({ ok: true, connected: false });
   }
