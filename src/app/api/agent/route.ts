@@ -28,10 +28,8 @@ import {
   vercelStatus,
 } from "@/lib/vercel-ops";
 import {
-  consumeChallenge,
   logSecurityEvent,
   requireAdmin,
-  requireChallenge,
 } from "@/lib/security";
 
 export const dynamic = "force-dynamic";
@@ -82,16 +80,15 @@ export async function POST(request: Request) {
   }
   const action = String(body.action ?? "");
 
-  // vault-token removal is destructive → one-time challenge required
+  // vault-token removal is one-click (reversible — paste the token back);
+  // the challenge flow is reserved for ops that reshape production
   if (action === "disconnect-github") {
-    const ch = requireChallenge(body, "agent-disconnect-github");
-    if (ch) return ch;
     await disconnectGithub();
     await logActivity({
       t: new Date().toISOString(),
       label: "dashboard (admin)",
       provider: "github",
-      op: "disconnect vault token (challenge-confirmed)",
+      op: "disconnect vault token (one-click)",
       ok: true,
       status: 200,
     });
@@ -99,14 +96,12 @@ export async function POST(request: Request) {
   }
 
   if (action === "disconnect-vercel") {
-    const ch = requireChallenge(body, "agent-disconnect-vercel");
-    if (ch) return ch;
     await disconnectVercel();
     await logActivity({
       t: new Date().toISOString(),
       label: "dashboard (admin)",
       provider: "vercel",
-      op: "disconnect vault token (challenge-confirmed)",
+      op: "disconnect vault token (one-click)",
       ok: true,
       status: 200,
     });
@@ -145,11 +140,10 @@ export async function POST(request: Request) {
           : NextResponse.json({ ok: false, error: res.error }, { status: 400 });
       }
 
-      case "disconnect-github": {
-        return NextResponse.json(
-          { ok: false, error: "use the challenge flow (see top of POST)" },
-          { status: 400 },
-        );
+      case "disconnect-github":
+      case "disconnect-vercel": {
+        // handled above (one-click) — this branch only satisfies exhaustive checks
+        return NextResponse.json({ ok: true });
       }
 
       case "connect-vercel": {
@@ -164,13 +158,6 @@ export async function POST(request: Request) {
         return res.ok
           ? NextResponse.json({ ok: true, username: res.username })
           : NextResponse.json({ ok: false, error: res.error }, { status: 400 });
-      }
-
-      case "disconnect-vercel": {
-        return NextResponse.json(
-          { ok: false, error: "use the challenge flow (see top of POST)" },
-          { status: 400 },
-        );
       }
 
       case "create-session": {
