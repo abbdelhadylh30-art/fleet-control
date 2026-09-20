@@ -11,6 +11,7 @@ import {
   type SiteHealth,
 } from "@/lib/fleet";
 import { readLog, totalSubmitted } from "@/lib/activity-log";
+import { autoSubmitArmed } from "@/lib/auto-submit";
 import { recordUptime, readUptime, uptimeStats } from "@/lib/uptime";
 import { buildPrevStates, updateIncidents } from "@/lib/incidents";
 import { readScoreHistory, recordScoreAvg } from "@/lib/score-history";
@@ -227,6 +228,19 @@ export async function GET(req: NextRequest) {
 
   const log = await readLog();
   const liveSites = sites.filter((s) => s.health.httpStatus === 200);
+
+  // self-driving indexing: armed hosts past their 6h cooldown get re-submitted
+  const armedHosts = sites
+    .filter(
+      (s) =>
+        s.health.httpStatus === 200 &&
+        s.health.robotsOk &&
+        s.health.sitemapOk &&
+        s.health.keyOk,
+    )
+    .map((s) => s.host);
+  const autoResults = await autoSubmitArmed(armedHosts, log);
+  const logForCount = [...autoResults, ...log];
   const scores = liveSites.map((s) => s.health.audit?.seoScore ?? 0);
   const avgScore = scores.length
     ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
@@ -282,7 +296,7 @@ export async function GET(req: NextRequest) {
           s.health.sitemapOk &&
           s.health.keyOk,
       ).length,
-      urlsSubmitted: totalSubmitted(log),
+      urlsSubmitted: totalSubmitted(logForCount),
       avgScore,
       uptimePct: fleetUptimePct,
       downHosts: incidentView.active.map((i) => i.host),
