@@ -1,12 +1,9 @@
-// ─── Postgres-readiness audit engine — SERVER-ONLY (fs + GitHub access) ─────
+// ─── Postgres-readiness audit engine — SERVER-ONLY (GitHub access + state) ──
 // Re-exports the client-safe core from pg-audit-shared.ts and adds:
-//   • baseline/status JSON IO (best-effort, serverless-tolerant)
+//   • baseline/status IO (Postgres-backed via pg-state, file fallback)
 //   • per-repo GitHub scanning + live fleet re-scan via the vault token
-// The baseline JSON is committed (db/postgres-audit.json); an admin-gated
+// The initial baseline is committed (db/postgres-audit.json); an admin-gated
 // re-scan refreshes it live from the GitHub API.
-
-import { promises as fs } from "fs";
-import path from "path";
 
 import {
   classifyApp,
@@ -18,51 +15,28 @@ import {
   type PgStatusMap,
   type PgVerdict,
 } from "./pg-audit-shared";
+import { readState, writeState } from "./pg-state";
 
 export * from "./pg-audit-shared";
-
-const DB_DIR = path.join(process.cwd(), "db");
-const BASELINE_FILE = path.join(DB_DIR, "postgres-audit.json");
-const STATUS_FILE = path.join(DB_DIR, "pg-migration-status.json");
 
 // ─── Baseline + status IO ────────────────────────────────────────────────────
 
 export async function readPgBaseline(): Promise<PgBaseline | null> {
-  try {
-    const raw = await fs.readFile(BASELINE_FILE, "utf8");
-    return JSON.parse(raw) as PgBaseline;
-  } catch {
-    return null;
-  }
+  return readState<PgBaseline>("postgres-audit");
 }
 
 export async function writePgBaseline(b: PgBaseline): Promise<boolean> {
-  try {
-    await fs.mkdir(DB_DIR, { recursive: true });
-    await fs.writeFile(BASELINE_FILE, JSON.stringify(b, null, 2), "utf8");
-    return true;
-  } catch {
-    return false; // read-only FS on the deployed instance — baseline stays committed
-  }
+  // durable in Postgres once fleet-control's own migration is live;
+  // otherwise falls back to the (committed) db/postgres-audit.json file
+  return writeState("postgres-audit", b);
 }
 
 export async function readPgStatus(): Promise<PgStatusMap> {
-  try {
-    const raw = await fs.readFile(STATUS_FILE, "utf8");
-    return JSON.parse(raw) as PgStatusMap;
-  } catch {
-    return { apps: {} };
-  }
+  return (await readState<PgStatusMap>("pg-migration-status")) ?? { apps: {} };
 }
 
 export async function writePgStatus(s: PgStatusMap): Promise<boolean> {
-  try {
-    await fs.mkdir(DB_DIR, { recursive: true });
-    await fs.writeFile(STATUS_FILE, JSON.stringify(s, null, 2), "utf8");
-    return true;
-  } catch {
-    return false;
-  }
+  return writeState("pg-migration-status", s);
 }
 
 export function emptySteps(): boolean[] {
