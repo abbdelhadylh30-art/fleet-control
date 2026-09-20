@@ -1,0 +1,423 @@
+{
+  "scannedAt": "2026-09-20T14:45:33.590Z",
+  "source": "operator-path inventory: GitHub git/trees + package.json + prisma schema per repo (14/14 scanned)",
+  "owner": "abbdelhadylh30-art",
+  "apps": [
+    {
+      "repo": "Athar",
+      "branch": "main",
+      "language": "TypeScript",
+      "framework": "next@^16.1.1",
+      "apiRoutes": 6,
+      "hasPrisma": true,
+      "prismaProvider": "sqlite",
+      "hasSqliteFile": true,
+      "jsonStateFiles": 0,
+      "jsonStateDir": null,
+      "deps": [
+        "prisma",
+        "@prisma/client",
+        "next",
+        "react"
+      ],
+      "pushedAt": "2026-09-19T22:57:39Z",
+      "verdict": "needs",
+      "priority": "high",
+      "reasons": [
+        "Prisma schema → SQLite provider",
+        "SQLite file committed (build-time snapshot — not runtime-writable)",
+        "6 serverless API routes"
+      ],
+      "fixSummary": "Port the Prisma datasource to PostgreSQL (and any runtime JSON state to tables) so data survives serverless cold starts.",
+      "hosts": [
+        "athar.abdelhadygabriel.me"
+      ],
+      "vercelProject": "athar",
+      "inFleet": true
+    },
+    {
+      "repo": "dev-portfolio",
+      "branch": "main",
+      "language": "TypeScript",
+      "framework": "next@^16.1.1",
+      "apiRoutes": 9,
+      "hasPrisma": true,
+      "prismaProvider": "sqlite",
+      "hasSqliteFile": true,
+      "jsonStateFiles": 0,
+      "jsonStateDir": null,
+      "deps": [
+        "prisma",
+        "@prisma/client",
+        "next",
+        "react"
+      ],
+      "pushedAt": "2026-09-19T22:57:25Z",
+      "verdict": "needs",
+      "priority": "high",
+      "reasons": [
+        "Prisma schema → SQLite provider",
+        "SQLite file committed (build-time snapshot — not runtime-writable)",
+        "9 serverless API routes"
+      ],
+      "fixSummary": "Port the Prisma datasource to PostgreSQL (and any runtime JSON state to tables) so data survives serverless cold starts.",
+      "hosts": [
+        "www.abdelhadygabriel.me",
+        "dev.abdelhadygabriel.me"
+      ],
+      "vercelProject": "abdelhady-gabriel",
+      "inFleet": true
+    },
+    {
+      "repo": "fleet-control",
+      "branch": "main",
+      "language": "TypeScript",
+      "framework": "next@^16.1.1",
+      "apiRoutes": 14,
+      "hasPrisma": true,
+      "prismaProvider": "sqlite",
+      "hasSqliteFile": false,
+      "jsonStateFiles": 0,
+      "jsonStateDir": null,
+      "deps": [
+        "prisma",
+        "@prisma/client",
+        "next",
+        "react"
+      ],
+      "pushedAt": "2026-09-20T12:47:33Z",
+      "verdict": "needs",
+      "priority": "high",
+      "reasons": [
+        "Prisma schema → SQLite provider",
+        "14 serverless API routes"
+      ],
+      "fixSummary": "Port the Prisma datasource to PostgreSQL (and any runtime JSON state to tables) so data survives serverless cold starts.",
+      "hosts": [
+        "fleet.abdelhadygabriel.me"
+      ],
+      "vercelProject": "fleet-control",
+      "inFleet": true
+    },
+    {
+      "repo": "forge-studio",
+      "branch": "main",
+      "language": "TypeScript",
+      "framework": "next@^16.1.1",
+      "apiRoutes": 27,
+      "hasPrisma": true,
+      "prismaProvider": "sqlite",
+      "hasSqliteFile": false,
+      "jsonStateFiles": 0,
+      "jsonStateDir": null,
+      "deps": [
+        "prisma",
+        "@prisma/client",
+        "next",
+        "react"
+      ],
+      "pushedAt": "2026-09-19T22:57:42Z",
+      "verdict": "needs",
+      "priority": "high",
+      "reasons": [
+        "Prisma schema → SQLite provider",
+        "27 serverless API routes"
+      ],
+      "fixSummary": "Port the Prisma datasource to PostgreSQL (and any runtime JSON state to tables) so data survives serverless cold starts.",
+      "hosts": [
+        "forge.abdelhadygabriel.me"
+      ],
+      "vercelProject": "forge-studio",
+      "inFleet": true
+    },
+    {
+      "repo": "landing-forge",
+      "branch": "main",
+      "language": "TypeScript",
+      "framework": "next@^16.1.1",
+      "apiRoutes": 16,
+      "hasPrisma": true,
+      "prismaProvider": "sqlite",
+      "hasSqliteFile": true,
+      "jsonStateFiles": 0,
+      "jsonStateDir": null,
+      "deps": [
+        "prisma",
+        "@prisma/client",
+        "next",
+        "react"
+      ],
+      "pushedAt": "2026-09-19T23:09:41Z",
+      "verdict": "needs",
+      "priority": "high",
+      "reasons": [
+        "Prisma schema → SQLite provider",
+        "SQLite file committed (build-time snapshot — not runtime-writable)",
+        "16 serverless API routes"
+      ],
+      "fixSummary": "Port the Prisma datasource to PostgreSQL (and any runtime JSON state to tables) so data survives serverless cold starts.",
+      "hosts": [
+        "landing.abdelhadygabriel.me"
+      ],
+      "vercelProject": "landing-forge",
+      "inFleet": true
+    },
+    {
+      "repo": "lead-profiler",
+      "branch": "main",
+      "language": "TypeScript",
+      "framework": "next@^16.1.1",
+      "apiRoutes": 5,
+      "hasPrisma": true,
+      "prismaProvider": "sqlite",
+      "hasSqliteFile": true,
+      "jsonStateFiles": 0,
+      "jsonStateDir": null,
+      "deps": [
+        "prisma",
+        "@prisma/client",
+        "next",
+        "react"
+      ],
+      "pushedAt": "2026-09-19T23:09:52Z",
+      "verdict": "needs",
+      "priority": "high",
+      "reasons": [
+        "Prisma schema → SQLite provider",
+        "SQLite file committed (build-time snapshot — not runtime-writable)",
+        "5 serverless API routes"
+      ],
+      "fixSummary": "Port the Prisma datasource to PostgreSQL (and any runtime JSON state to tables) so data survives serverless cold starts.",
+      "hosts": [
+        "leads.abdelhadygabriel.me"
+      ],
+      "vercelProject": "lead-profiler-deploy",
+      "inFleet": true
+    },
+    {
+      "repo": "portfolio",
+      "branch": "main",
+      "language": "TypeScript",
+      "framework": "next@^16.1.1",
+      "apiRoutes": 10,
+      "hasPrisma": true,
+      "prismaProvider": "sqlite",
+      "hasSqliteFile": true,
+      "jsonStateFiles": 0,
+      "jsonStateDir": null,
+      "deps": [
+        "prisma",
+        "@prisma/client",
+        "next",
+        "react"
+      ],
+      "pushedAt": "2026-09-19T22:57:29Z",
+      "verdict": "needs",
+      "priority": "high",
+      "reasons": [
+        "Prisma schema → SQLite provider",
+        "SQLite file committed (build-time snapshot — not runtime-writable)",
+        "10 serverless API routes"
+      ],
+      "fixSummary": "Port the Prisma datasource to PostgreSQL (and any runtime JSON state to tables) so data survives serverless cold starts.",
+      "hosts": [
+        "portfolio.abdelhadygabriel.me"
+      ],
+      "vercelProject": "portfolio",
+      "inFleet": true
+    },
+    {
+      "repo": "profileforge",
+      "branch": "main",
+      "language": "TypeScript",
+      "framework": "next@^16.1.1",
+      "apiRoutes": 4,
+      "hasPrisma": true,
+      "prismaProvider": "sqlite",
+      "hasSqliteFile": true,
+      "jsonStateFiles": 0,
+      "jsonStateDir": null,
+      "deps": [
+        "prisma",
+        "@prisma/client",
+        "next",
+        "react"
+      ],
+      "pushedAt": "2026-09-19T23:09:48Z",
+      "verdict": "needs",
+      "priority": "high",
+      "reasons": [
+        "Prisma schema → SQLite provider",
+        "SQLite file committed (build-time snapshot — not runtime-writable)",
+        "4 serverless API routes"
+      ],
+      "fixSummary": "Port the Prisma datasource to PostgreSQL (and any runtime JSON state to tables) so data survives serverless cold starts.",
+      "hosts": [
+        "profile.abdelhadygabriel.me"
+      ],
+      "vercelProject": "profileforge",
+      "inFleet": true
+    },
+    {
+      "repo": "qaimati",
+      "branch": "main",
+      "language": "TypeScript",
+      "framework": "next@^16.1.1",
+      "apiRoutes": 6,
+      "hasPrisma": true,
+      "prismaProvider": "sqlite",
+      "hasSqliteFile": true,
+      "jsonStateFiles": 0,
+      "jsonStateDir": null,
+      "deps": [
+        "prisma",
+        "@prisma/client",
+        "next",
+        "react"
+      ],
+      "pushedAt": "2026-09-19T22:09:29Z",
+      "verdict": "needs",
+      "priority": "high",
+      "reasons": [
+        "Prisma schema → SQLite provider",
+        "SQLite file committed (build-time snapshot — not runtime-writable)",
+        "6 serverless API routes"
+      ],
+      "fixSummary": "Port the Prisma datasource to PostgreSQL (and any runtime JSON state to tables) so data survives serverless cold starts.",
+      "hosts": [
+        "menu.abdelhadygabriel.me"
+      ],
+      "vercelProject": "qaimati",
+      "inFleet": true
+    },
+    {
+      "repo": "fitness-house",
+      "branch": "main",
+      "language": "TypeScript",
+      "framework": "next@^16.1.1",
+      "apiRoutes": 0,
+      "hasPrisma": true,
+      "prismaProvider": "sqlite",
+      "hasSqliteFile": true,
+      "jsonStateFiles": 0,
+      "jsonStateDir": null,
+      "deps": [
+        "prisma",
+        "@prisma/client",
+        "next",
+        "react"
+      ],
+      "pushedAt": "2026-09-19T22:57:37Z",
+      "verdict": "needs",
+      "priority": "medium",
+      "reasons": [
+        "Prisma schema → SQLite provider",
+        "SQLite file committed (build-time snapshot — not runtime-writable)"
+      ],
+      "fixSummary": "SQLite is only readable from the build snapshot — if any server component queries it at runtime, port it to Postgres.",
+      "hosts": [
+        "fitness.abdelhadygabriel.me"
+      ],
+      "vercelProject": "fitness-house",
+      "inFleet": true
+    },
+    {
+      "repo": "Pixelforge",
+      "branch": "main",
+      "language": "HTML",
+      "framework": "next@^16.1.1",
+      "apiRoutes": 2,
+      "hasPrisma": false,
+      "prismaProvider": null,
+      "hasSqliteFile": false,
+      "jsonStateFiles": 0,
+      "jsonStateDir": null,
+      "deps": [
+        "next",
+        "react"
+      ],
+      "pushedAt": "2026-09-19T22:57:43Z",
+      "verdict": "optional",
+      "priority": "low",
+      "reasons": [
+        "2 serverless API routes"
+      ],
+      "fixSummary": "Stateless serverless routes — fine without a DB. Migrate only if the app starts persisting data.",
+      "hosts": [
+        "pixelforge.abdelhadygabriel.me"
+      ],
+      "vercelProject": "pixelforge",
+      "inFleet": true
+    },
+    {
+      "repo": "build-ledger",
+      "branch": "main",
+      "language": "TypeScript",
+      "framework": "next@^16.1.1",
+      "apiRoutes": 0,
+      "hasPrisma": false,
+      "prismaProvider": null,
+      "hasSqliteFile": false,
+      "jsonStateFiles": 0,
+      "jsonStateDir": null,
+      "deps": [
+        "next",
+        "react"
+      ],
+      "pushedAt": "2026-09-19T23:09:45Z",
+      "verdict": "ok",
+      "priority": "low",
+      "reasons": [],
+      "fixSummary": "Nothing to migrate — no backend state on the server.",
+      "hosts": [
+        "ledger.abdelhadygabriel.me"
+      ],
+      "vercelProject": "build-ledger",
+      "inFleet": true
+    },
+    {
+      "repo": "glamchain",
+      "branch": "main",
+      "language": "TypeScript",
+      "framework": null,
+      "apiRoutes": 0,
+      "hasPrisma": false,
+      "prismaProvider": null,
+      "hasSqliteFile": false,
+      "jsonStateFiles": 0,
+      "jsonStateDir": null,
+      "deps": [],
+      "pushedAt": "2026-09-19T22:57:26Z",
+      "verdict": "ok",
+      "priority": "low",
+      "reasons": [],
+      "fixSummary": "Nothing to migrate — no backend state on the server.",
+      "hosts": [
+        "glamchain.abdelhadygabriel.me"
+      ],
+      "vercelProject": "glamchain",
+      "inFleet": true
+    },
+    {
+      "repo": "lead-profiler-haskell",
+      "branch": "main",
+      "language": "Haskell",
+      "framework": null,
+      "apiRoutes": 0,
+      "hasPrisma": false,
+      "prismaProvider": null,
+      "hasSqliteFile": false,
+      "jsonStateFiles": 0,
+      "jsonStateDir": null,
+      "deps": [],
+      "pushedAt": "2026-06-28T23:57:42Z",
+      "verdict": "ok",
+      "priority": "low",
+      "reasons": [],
+      "fixSummary": "Nothing to migrate — no backend state on the server.",
+      "hosts": [],
+      "vercelProject": null,
+      "inFleet": false
+    }
+  ]
+}
