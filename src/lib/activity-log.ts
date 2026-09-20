@@ -24,7 +24,11 @@ export async function readLog(): Promise<LogEntry[]> {
 
 export async function appendLog(entries: LogEntry[]): Promise<void> {
   const all = [...entries, ...(await readLog())].slice(0, 300);
-  await fs.writeFile(LOG_PATH, JSON.stringify(all, null, 2), "utf8");
+  try {
+    await fs.writeFile(LOG_PATH, JSON.stringify(all, null, 2), "utf8");
+  } catch {
+    /* read-only FS (serverless) — log is best-effort */
+  }
 }
 
 export function totalSubmitted(entries: LogEntry[]): number {
