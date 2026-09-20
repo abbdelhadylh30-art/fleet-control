@@ -102,11 +102,8 @@ async function probeFsWritable(): Promise<boolean> {
 
 export async function selfOpsStatus(): Promise<SelfOpsStatus> {
   const fsWritable = await probeFsWritable();
-  const envKeys = (process.env.FLEET_AGENT_KEYS ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .map(describeKeyEntry);
+  const { splitKeyEntries } = await import("./agent-vault");
+  const envKeys = splitKeyEntries(process.env.FLEET_AGENT_KEYS ?? "").map(describeKeyEntry);
 
   interface DeploysShape {
     deployments?: {
@@ -192,10 +189,8 @@ export async function promoteSessionToEnv(
     return { ok: false, error: "key is not an active minted link on this instance" };
   }
 
-  const current = (process.env.FLEET_AGENT_KEYS ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const { splitKeyEntries } = await import("./agent-vault");
+  const current = splitKeyEntries(process.env.FLEET_AGENT_KEYS ?? "");
   if (current.length === 0) {
     // Only the DEPLOYED instance can see the real FLEET_AGENT_KEYS value.
     // A local instance reading "" must NOT upsert — it would wipe the
@@ -217,7 +212,9 @@ export async function promoteSessionToEnv(
   // was minted with, instead of silently becoming all-powerful.
   const entry =
     minted.scopes.length > 0 ? `${key}:${minted.scopes.join(",")}` : key;
-  const merged = [...current, entry].join(",");
+  // "|" separates entries — a scoped entry's scope spec uses "," internally,
+  // so the merged value must not be comma-joined
+  const merged = [...current, entry].join("|");
 
   const envRes = await vercelApi<{ created?: unknown }>(
     `/v10/projects/${encodeURIComponent(project())}/env?upsert=true`,
