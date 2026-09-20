@@ -54,7 +54,11 @@ export async function updateIncidents(
   }
 
   const trimmed = all.slice(-MAX_KEPT);
-  await fs.writeFile(INC_PATH, JSON.stringify(trimmed, null, 2), "utf8");
+  try {
+    await fs.writeFile(INC_PATH, JSON.stringify(trimmed, null, 2), "utf8");
+  } catch {
+    /* read-only FS (serverless) — incidents are best-effort */
+  }
 
   return {
     active: trimmed.filter((i) => i.recoveredAt === null),
