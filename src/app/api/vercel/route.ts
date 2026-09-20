@@ -17,9 +17,9 @@ export async function GET() {
   return NextResponse.json(status, { headers: { "cache-control": "no-store" } });
 }
 
-// POST actions (admin-gated; disconnect/reattach are destructive → challenge):
+// POST actions (admin-gated; only domain-reshaping ops are challenge-gated):
 //   { action: "connect", token }                    → validate + store once
-//   { action: "disconnect", confirmToken }          → forget token
+//   { action: "disconnect" }                        → forget token (one-click, reversible — paste it back)
 //   { action: "audit" }                             → domain → project map + findings
 //   { action: "reattach", domain, toProject, confirmToken } → guarded domain move
 export async function POST(req: Request) {
@@ -53,12 +53,13 @@ export async function POST(req: Request) {
   }
 
   if (body.action === "disconnect") {
-    const ch = requireChallenge(body as Record<string, unknown>, "vercel-disconnect");
-    if (ch) return ch;
+    // one-click by design: disconnecting is instantly reversible (paste the
+    // token back) and only affects THIS dashboard's access — there is nothing
+    // on Vercel's side to undo, so the challenge friction was pure UX tax.
     await disconnectVercel();
     await logSecurityEvent({
       kind: "vercel-disconnect",
-      detail: "vault token removed (challenge-confirmed)",
+      detail: "vault token removed (one-click)",
       request: req,
     });
     return NextResponse.json({ ok: true, connected: false });
