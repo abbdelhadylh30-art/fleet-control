@@ -1,32 +1,21 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// Fleet Control — Prisma schema (PostgreSQL / Neon as of v18)
+// The single PgState table holds every runtime state blob (security events,
+// activity, uptime, score history, incidents, IndexNow log, auto-pilot,
+// agent sessions, postgres-audit baseline + per-app migration progress) as
+// JSON documents — see src/lib/pg-state.ts.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")      // pooled connection (runtime)
+  directUrl = env("DIRECT_URL")        // direct connection (schema push)
 }
 
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Post {
-  id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
-  createdAt DateTime @default(now())
+model PgState {
+  key       String   @id
+  value     Json
   updatedAt DateTime @updatedAt
 }
