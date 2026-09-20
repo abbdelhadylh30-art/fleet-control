@@ -306,7 +306,11 @@ export default function AnalyticsPage() {
                 icon={<Activity className="h-3.5 w-3.5" />}
                 label="fleet uptime"
                 value={`${data.fleetUptimePct}%`}
-                sub={`${liveSites.length}/${FLEET.length} live in the last hour`}
+                sub={
+                  Object.keys(data.uptimeByHost).length === 0
+                    ? "no history on this instance yet"
+                    : `${liveSites.length}/${FLEET.length} live in the last hour`
+                }
               />
               <Kpi
                 icon={<Send className="h-3.5 w-3.5" />}
