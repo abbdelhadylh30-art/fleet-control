@@ -10,6 +10,7 @@ export interface LogEntry {
   urls: number;
   ok: boolean;
   reason?: string;
+  auto?: boolean; // fired by the self-driving pipeline (not a manual submit)
 }
 
 export async function readLog(): Promise<LogEntry[]> {
