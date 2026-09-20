@@ -3,7 +3,9 @@
 import { Activity } from "lucide-react";
 
 import { ActivityPanel } from "@/components/activity-panel";
+import { AgentUsageCard } from "@/components/agent-usage-card";
 import { AppShell } from "@/components/app-shell";
+import { SelfOpsPanel } from "@/components/selfops-panel";
 
 export default function ActivityPage() {
   return (
@@ -16,14 +18,22 @@ export default function ActivityPage() {
           </span>
           <div>
             <h1 className="text-lg font-semibold tracking-tight text-zinc-100">
-              Indexing activity
+              Operations &amp; activity
             </h1>
             <p className="text-xs text-zinc-500">
-              Every IndexNow submission across the fleet — newest first, with a
-              7-day pulse.
+              Deployment health, agent-link usage and every IndexNow submission — newest
+              first.
             </p>
           </div>
         </div>
+
+        <section aria-label="Self operations status">
+          <SelfOpsPanel />
+        </section>
+
+        <section aria-label="Agent link usage">
+          <AgentUsageCard />
+        </section>
 
         <section aria-label="Indexing activity log">
           <ActivityPanel />
