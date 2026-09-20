@@ -123,6 +123,14 @@ export function ActivityPanel() {
                 >
                   {e.http ?? "ERR"}
                 </Badge>
+                {"auto" in e && e.auto ? (
+                  <Badge
+                    variant="outline"
+                    className="shrink-0 border-amber-500/30 bg-amber-500/10 px-1 py-0 text-[9px] font-medium text-amber-300"
+                  >
+                    AUTO
+                  </Badge>
+                ) : null}
                 <span className="w-16 shrink-0 text-right text-[11px] text-zinc-600 transition-colors group-hover/entry:text-zinc-400">
                   {relativeTime(e.ts)}
                 </span>
