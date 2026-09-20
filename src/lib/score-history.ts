@@ -1,8 +1,7 @@
-import { promises as fs } from "fs";
-import path from "path";
+import { readState, writeState } from "@/lib/pg-state";
 
-const HISTORY_PATH = path.join(process.cwd(), "db", "score-history.json");
-const MAX_POINTS = 240; // ~4h of checks at 60s cadence; plenty for the trend line
+const KEY = "score-history";
+const MAX_POINTS = 720; // ~7 days of checks at 15-min cadence
 
 export interface ScorePoint {
   t: number; // epoch ms of the fresh fleet check
@@ -10,13 +9,8 @@ export interface ScorePoint {
 }
 
 export async function readScoreHistory(): Promise<ScorePoint[]> {
-  try {
-    const raw = await fs.readFile(HISTORY_PATH, "utf8");
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as ScorePoint[]) : [];
-  } catch {
-    return [];
-  }
+  const parsed = await readState<ScorePoint[]>(KEY);
+  return Array.isArray(parsed) ? parsed : [];
 }
 
 /**
@@ -28,10 +22,6 @@ export async function recordScoreAvg(avg: number): Promise<void> {
   if (!Number.isFinite(avg) || avg <= 0) return;
   const list = await readScoreHistory();
   list.push({ t: Date.now(), avg });
-  const trimmed = list.slice(-MAX_POINTS);
-  try {
-    await fs.writeFile(HISTORY_PATH, JSON.stringify(trimmed), "utf8");
-  } catch {
-    /* non-fatal — trend is best-effort */
-  }
+  // Postgres (durable) with file fallback — the trend finally survives cold starts
+  await writeState(KEY, list.slice(-MAX_POINTS));
 }
