@@ -4,6 +4,7 @@
 import type { SiteUptime } from "@/lib/uptime";
 import type { IncidentView } from "@/lib/incidents";
 import type { ScorePoint } from "@/lib/score-history";
+import type { AutoPilotAction } from "@/lib/autopilot";
 export type { SiteUptime, ScorePoint };
 
 export const INDEXNOW_KEY =
@@ -100,7 +101,6 @@ export const FLEET: FleetSiteDef[] = [
     description: "Visual landing page builder",
     repo: "landing-forge",
     group: "Tools & Apps",
-    blocker: "Repo not git-linked to Vercel — connect in dashboard",
   },
   {
     id: "ledger",
@@ -109,7 +109,6 @@ export const FLEET: FleetSiteDef[] = [
     description: "Projects & campaigns tracker",
     repo: "build-ledger",
     group: "Tools & Apps",
-    blocker: "Repo not git-linked to Vercel — connect in dashboard",
   },
   {
     id: "profile",
@@ -118,7 +117,6 @@ export const FLEET: FleetSiteDef[] = [
     description: "GitHub profile README generator",
     repo: "profileforge",
     group: "Tools & Apps",
-    blocker: "Repo not git-linked to Vercel — connect in dashboard",
   },
   {
     id: "leads",
@@ -127,7 +125,6 @@ export const FLEET: FleetSiteDef[] = [
     description: "Cold-outreach research compressor",
     repo: "lead-profiler",
     group: "Tools & Apps",
-    blocker: "Domain points to stale Vercel project — re-attach to lead-profiler-deploy",
   },
   {
     id: "pixelforge",
@@ -144,7 +141,6 @@ export const FLEET: FleetSiteDef[] = [
     description: "Developer portfolio — Vercel-style dark",
     repo: "dev-portfolio",
     group: "Portfolio",
-    blocker: "Domain points to stale Vercel project — re-attach to abdelhady-gabriel",
   },
 ];
 
@@ -229,6 +225,7 @@ export interface FleetResponse {
   bing: VerifyStatus; // BingSiteAuth.xml on www
   incidents: IncidentView; // open + recently resolved downtime incidents
   trend: ScorePoint[]; // fleet avg score over stored fresh checks (oldest → newest)
+  autoPilot: { enabled: boolean; actions: AutoPilotAction[] }; // self-heal moves fired on this check
 }
 
 // Scoring weights (sum = 100): robots 5 · sitemap 10 · key 5 · title 15 ·
