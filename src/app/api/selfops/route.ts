@@ -48,7 +48,9 @@ async function neonFetch(
     }
     return { status: res.status, json };
   } catch (e) {
-    return { status: 0, json: null, errorText: e instanceof Error ? e.message : "network error" };
+    const cause =
+      e instanceof Error && "cause" in e ? ` (cause: ${String((e as { cause?: unknown }).cause)})` : "";
+    return { status: 0, json: null, errorText: (e instanceof Error ? e.message : "network error") + cause };
   }
 }
 
