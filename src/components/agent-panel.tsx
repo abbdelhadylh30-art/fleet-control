@@ -698,6 +698,31 @@ export function AgentAccessPanel() {
                 </Button>
               </div>
             </div>
+            <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+              <code className="min-w-0 flex-1 truncate rounded-lg border border-white/10 bg-black/40 px-2.5 py-2 font-mono text-[11px] text-zinc-300">
+                {`x-agent-key: ${minted.key}`}
+              </code>
+              <div className="flex">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    void copyText(
+                      minted.key,
+                      "Key copied — send it as the x-agent-key header",
+                    )
+                  }
+                  className="h-9 gap-1.5 border-white/15 px-3 text-xs text-zinc-300 hover:bg-white/5"
+                >
+                  <KeyRound className="h-3.5 w-3.5" /> Copy header key
+                </Button>
+              </div>
+            </div>
+            <p className="mt-1.5 text-[10px] leading-relaxed text-zinc-500">
+              <span className="text-emerald-400/90">Header mode (recommended)</span> keeps the key
+              out of URLs, browser history, referrers and access logs. The URL link above stays
+              available for chat flows — treat it as a live credential either way.
+            </p>
             <p className="mt-2 text-[10px] leading-relaxed text-zinc-500">
               The full link is <span className="text-amber-400/90">shown only this once</span> —
               the vault keeps a masked hint (flk_…{minted.key.slice(-4)}). Anyone holding it can
