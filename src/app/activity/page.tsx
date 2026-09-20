@@ -5,6 +5,7 @@ import { Activity } from "lucide-react";
 import { ActivityPanel } from "@/components/activity-panel";
 import { AgentUsageCard } from "@/components/agent-usage-card";
 import { AppShell } from "@/components/app-shell";
+import { SecurityPanel } from "@/components/security-panel";
 import { SelfOpsPanel } from "@/components/selfops-panel";
 
 export default function ActivityPage() {
@@ -33,6 +34,10 @@ export default function ActivityPage() {
 
         <section aria-label="Agent link usage">
           <AgentUsageCard />
+        </section>
+
+        <section aria-label="Security events">
+          <SecurityPanel />
         </section>
 
         <section aria-label="Indexing activity log">
