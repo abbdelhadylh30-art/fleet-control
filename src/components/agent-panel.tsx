@@ -29,6 +29,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useChallengeAction } from "@/lib/challenge-client";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -162,6 +163,8 @@ export function AgentAccessPanel() {
   const [minted, setMinted] = useState<MintedLink | null>(null);
   const [revoking, setRevoking] = useState<string | null>(null);
   const [promoting, setPromoting] = useState(false);
+  // destructive ops → two-step confirmation (one-time challenge tokens)
+  const challenge = useChallengeAction();
 
   const load = useCallback(async () => {
     try {
@@ -224,9 +227,13 @@ export function AgentAccessPanel() {
   };
 
   const disconnect = async (provider: "github" | "vercel") => {
-    await post({ action: `disconnect-${provider}` });
-    toast.success(`${provider === "github" ? "GitHub" : "Vercel"} token removed from the vault`);
-    await load();
+    await challenge.trigger(`agent-disconnect-${provider}`, async (confirmToken) => {
+      await post({ action: `disconnect-${provider}`, confirmToken });
+      toast.success(
+        `${provider === "github" ? "GitHub" : "Vercel"} token removed from the vault`,
+      );
+      await load();
+    });
   };
 
   const toggleScope = (s: string) => {
@@ -287,34 +294,36 @@ export function AgentAccessPanel() {
    *  + redeploy production, so the link survives serverless cold starts. */
   const promote = async () => {
     if (!minted) return;
-    setPromoting(true);
-    try {
-      const res = await fetch("/api/selfops", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "promote", key: minted.key }),
-      });
-      const json = (await res.json()) as {
-        ok: boolean;
-        updated?: boolean;
-        redeployUid?: string;
-        error?: string;
-      };
-      if (json.ok) {
-        toast.success(
-          json.updated
-            ? "Key copied to the deployment env — production is redeploying, link is cold-start-proof in ~1 min"
-            : "Key is already permanent on the deployment",
-          { duration: 8000 },
-        );
-      } else {
-        toast.error(json.error ?? "could not promote the key", { duration: 8000 });
+    await challenge.trigger("selfops-promote", async (confirmToken) => {
+      setPromoting(true);
+      try {
+        const res = await fetch("/api/selfops", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "promote", key: minted.key, confirmToken }),
+        });
+        const json = (await res.json()) as {
+          ok: boolean;
+          updated?: boolean;
+          redeployUid?: string;
+          error?: string;
+        };
+        if (json.ok) {
+          toast.success(
+            json.updated
+              ? "Key copied to the deployment env — production is redeploying, link is cold-start-proof in ~1 min"
+              : "Key is already permanent on the deployment",
+            { duration: 8000 },
+          );
+        } else {
+          toast.error(json.error ?? "could not promote the key", { duration: 8000 });
+        }
+      } catch {
+        toast.error("Network error while promoting the key");
+      } finally {
+        setPromoting(false);
       }
-    } catch {
-      toast.error("Network error while promoting the key");
-    } finally {
-      setPromoting(false);
-    }
+    });
   };
 
   const gh = status?.github ?? { connected: false, savedAt: null, account: null };
@@ -406,9 +415,16 @@ export function AgentAccessPanel() {
                 size="sm"
                 variant="ghost"
                 onClick={() => void disconnect("github")}
-                className="h-7 gap-1 px-2 text-[10px] text-zinc-500 hover:bg-white/5 hover:text-rose-300"
+                className={`h-7 gap-1 px-2 text-[10px] transition-colors ${
+                  challenge.armedOp === "agent-disconnect-github"
+                    ? "bg-amber-500/15 text-amber-300 hover:bg-amber-500/20"
+                    : "text-zinc-500 hover:bg-white/5 hover:text-rose-300"
+                }`}
               >
-                <Unplug className="h-3 w-3" /> disconnect
+                <Unplug className="h-3 w-3" />{" "}
+                {challenge.armedOp === "agent-disconnect-github"
+                  ? `confirm (${challenge.secondsLeft}s)`
+                  : "disconnect"}
               </Button>
             </div>
           ) : (
@@ -475,9 +491,16 @@ export function AgentAccessPanel() {
                 size="sm"
                 variant="ghost"
                 onClick={() => void disconnect("vercel")}
-                className="h-7 gap-1 px-2 text-[10px] text-zinc-500 hover:bg-white/5 hover:text-rose-300"
+                className={`h-7 gap-1 px-2 text-[10px] transition-colors ${
+                  challenge.armedOp === "agent-disconnect-vercel"
+                    ? "bg-amber-500/15 text-amber-300 hover:bg-amber-500/20"
+                    : "text-zinc-500 hover:bg-white/5 hover:text-rose-300"
+                }`}
               >
-                <Unplug className="h-3 w-3" /> disconnect
+                <Unplug className="h-3 w-3" />{" "}
+                {challenge.armedOp === "agent-disconnect-vercel"
+                  ? `confirm (${challenge.secondsLeft}s)`
+                  : "disconnect"}
               </Button>
             </div>
           ) : (
@@ -637,20 +660,26 @@ export function AgentAccessPanel() {
                       size="sm"
                       onClick={() => void promote()}
                       disabled={promoting}
-                      className="h-9 gap-1.5 bg-amber-500/15 px-2.5 text-xs text-amber-300 ring-1 ring-amber-500/30 transition-all hover:bg-amber-500/25 hover:text-amber-200"
+                      className={`h-9 gap-1.5 px-2.5 text-xs ring-1 transition-all ${
+                        challenge.armedOp === "selfops-promote"
+                          ? "animate-pulse bg-amber-500/25 text-amber-200 ring-amber-500/50 hover:bg-amber-500/35"
+                          : "bg-amber-500/15 text-amber-300 ring-amber-500/30 hover:bg-amber-500/25 hover:text-amber-200"
+                      }`}
                     >
                       {promoting ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
                         <ShieldCheck className="h-3.5 w-3.5" />
                       )}
-                      Make permanent
+                      {challenge.armedOp === "selfops-promote"
+                        ? `Confirm (${challenge.secondsLeft}s)`
+                        : "Make permanent"}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="max-w-56 border border-white/10 bg-zinc-900 text-[10px] leading-relaxed text-zinc-300">
                     Copies this key into the deployed instance&apos;s env and redeploys
-                    production — the link then survives serverless cold starts (env keys are
-                    full-scope, permanent).
+                    production — the link then survives serverless cold starts, keeping
+                    exactly the scopes it was minted with (nothing more).
                   </TooltipContent>
                 </Tooltip>
                 <Button
