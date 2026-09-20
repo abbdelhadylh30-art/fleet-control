@@ -202,5 +202,9 @@ export async function readGscLog(): Promise<GscLogEntry[]> {
 
 export async function appendGscLog(entries: GscLogEntry[]): Promise<void> {
   const all = [...entries, ...(await readGscLog())].slice(0, 200);
-  await fs.writeFile(GSC_LOG_PATH, JSON.stringify(all, null, 2), "utf8");
+  try {
+    await fs.writeFile(GSC_LOG_PATH, JSON.stringify(all, null, 2), "utf8");
+  } catch {
+    /* read-only FS (serverless) — log is best-effort */
+  }
 }
