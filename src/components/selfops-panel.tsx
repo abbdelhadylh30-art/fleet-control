@@ -16,12 +16,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { useChallengeAction } from "@/lib/challenge-client";
 import { toast } from "sonner";
 
 interface SelfOpsStatus {
   fsWritable: boolean;
   project: string;
-  envKeys: { hint: string }[];
+  envKeys: { hint: string; scopes: string[] }[];
   latest: {
     uid: string;
     readyState: string;
@@ -66,6 +67,9 @@ export function SelfOpsPanel() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [deploying, setDeploying] = useState(false);
+  // destructive op → two-step confirmation (one-time challenge token)
+  const challenge = useChallengeAction();
+  const armedRedeploy = challenge.armedOp === "selfops-redeploy";
 
   const load = useCallback(async (manual = false) => {
     if (manual) setRefreshing(true);
@@ -93,27 +97,29 @@ export function SelfOpsPanel() {
   }, [status, load]);
 
   const redeploy = async () => {
-    setDeploying(true);
-    try {
-      const res = await fetch("/api/selfops", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "redeploy" }),
-      });
-      const json = (await res.json()) as { ok: boolean; uid?: string; error?: string };
-      if (json.ok) {
-        toast.success("Production redeploy triggered — new build goes live in ~60s", {
-          duration: 6000,
+    await challenge.trigger("selfops-redeploy", async (confirmToken) => {
+      setDeploying(true);
+      try {
+        const res = await fetch("/api/selfops", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "redeploy", confirmToken }),
         });
-        setTimeout(() => void load(), 3000);
-      } else {
-        toast.error(json.error ?? "Redeploy failed");
+        const json = (await res.json()) as { ok: boolean; uid?: string; error?: string };
+        if (json.ok) {
+          toast.success("Production redeploy triggered — new build goes live in ~60s", {
+            duration: 6000,
+          });
+          setTimeout(() => void load(), 3000);
+        } else {
+          toast.error(json.error ?? "Redeploy failed");
+        }
+      } catch {
+        toast.error("Network error while triggering the redeploy");
+      } finally {
+        setDeploying(false);
       }
-    } catch {
-      toast.error("Network error while triggering the redeploy");
-    } finally {
-      setDeploying(false);
-    }
+    });
   };
 
   const building = status?.latest ? ACTIVE_STATES.includes(status.latest.readyState) : false;
@@ -142,14 +148,25 @@ export function SelfOpsPanel() {
             size="sm"
             disabled={deploying || building}
             onClick={() => void redeploy()}
-            className="h-8 gap-1.5 bg-emerald-500/15 px-3 text-xs text-emerald-300 ring-1 ring-emerald-500/30 transition-all hover:bg-emerald-500/25 hover:text-emerald-200"
+            aria-label={armedRedeploy ? "Confirm the production redeploy" : "Redeploy production — requires a confirmation click"}
+            className={`h-8 gap-1.5 px-3 text-xs ring-1 transition-all ${
+              armedRedeploy
+                ? "animate-pulse bg-amber-500/20 text-amber-200 ring-amber-500/40 hover:bg-amber-500/30"
+                : "bg-emerald-500/15 text-emerald-300 ring-emerald-500/30 hover:bg-emerald-500/25 hover:text-emerald-200"
+            }`}
           >
             {deploying ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : armedRedeploy ? (
+              <AlertTriangle className="h-3.5 w-3.5" />
             ) : (
               <Rocket className="h-3.5 w-3.5" />
             )}
-            {building ? "deploying…" : "Redeploy production"}
+            {building
+              ? "deploying…"
+              : armedRedeploy
+                ? `Confirm redeploy (${challenge.secondsLeft}s)`
+                : "Redeploy production"}
           </Button>
           <Button
             size="sm"
@@ -263,19 +280,31 @@ export function SelfOpsPanel() {
               <div className="flex flex-wrap gap-1.5">
                 {status?.envKeys.length ? (
                   status.envKeys.map((k) => (
-                    <code
+                    <span
                       key={k.hint}
-                      className="rounded-md border border-white/10 bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-zinc-300"
+                      className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-zinc-300"
+                      title={`scopes: ${k.scopes.join(", ")}`}
                     >
                       {k.hint}
-                    </code>
+                      <span
+                        className={`rounded px-1 text-[8px] uppercase tracking-wide ${
+                          k.scopes.length === 4
+                            ? "bg-amber-500/15 text-amber-300"
+                            : "bg-emerald-500/15 text-emerald-300"
+                        }`}
+                      >
+                        {k.scopes.length === 4 ? "full" : "scoped"}
+                      </span>
+                    </span>
                   ))
                 ) : (
                   <span className="text-xs text-zinc-600">none configured</span>
                 )}
               </div>
               <p className="text-[11px] leading-relaxed text-zinc-500">
-                {connected ? "Always-valid env links — survive cold starts, full scopes." : ""}
+                {connected
+                  ? "Always-valid env links — survive cold starts; promoted links keep their minted scopes."
+                  : ""}
               </p>
             </div>
           )}
