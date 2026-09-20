@@ -7,26 +7,31 @@ import {
   reattachVercelDomain,
   vercelStatus,
 } from "@/lib/vercel-ops";
+import { logSecurityEvent, requireAdmin, requireChallenge } from "@/lib/security";
 
 export const dynamic = "force-dynamic";
 
 // GET → connect status (no token material, safe to poll)
 export async function GET() {
   const status = await vercelStatus();
-  return NextResponse.json(status);
+  return NextResponse.json(status, { headers: { "cache-control": "no-store" } });
 }
 
-// POST actions:
+// POST actions (admin-gated; disconnect/reattach are destructive → challenge):
 //   { action: "connect", token }                    → validate + store once
-//   { action: "disconnect" }                        → forget token
+//   { action: "disconnect", confirmToken }          → forget token
 //   { action: "audit" }                             → domain → project map + findings
-//   { action: "reattach", domain, toProject }       → guarded domain move
+//   { action: "reattach", domain, toProject, confirmToken } → guarded domain move
 export async function POST(req: Request) {
+  const gate = requireAdmin(req);
+  if (gate) return gate;
+
   let body: {
     action?: string;
     token?: string;
     domain?: string;
     toProject?: string;
+    confirmToken?: string;
   };
   try {
     body = await req.json();
@@ -48,7 +53,14 @@ export async function POST(req: Request) {
   }
 
   if (body.action === "disconnect") {
+    const ch = requireChallenge(body as Record<string, unknown>, "vercel-disconnect");
+    if (ch) return ch;
     await disconnectVercel();
+    await logSecurityEvent({
+      kind: "vercel-disconnect",
+      detail: "vault token removed (challenge-confirmed)",
+      request: req,
+    });
     return NextResponse.json({ ok: true, connected: false });
   }
 
@@ -71,7 +83,16 @@ export async function POST(req: Request) {
         { error: "Missing domain or toProject." },
         { status: 400 },
       );
+    const ch = requireChallenge(body as Record<string, unknown>, "vercel-reattach");
+    if (ch) return ch;
     const result = await reattachVercelDomain(domain, toProject);
+    if (result.ok) {
+      await logSecurityEvent({
+        kind: "vercel-reattach",
+        detail: `${domain} → ${toProject} (challenge-confirmed)`,
+        request: req,
+      });
+    }
     return NextResponse.json(result, { status: result.ok ? 200 : 400 });
   }
 
