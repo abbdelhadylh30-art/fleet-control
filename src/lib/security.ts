@@ -21,7 +21,7 @@
 // but mitigations land in middleware (no-referrer) + proxy hardening
 // (header-first key, no-store, rate limits) so keys stop leaking sideways.
 
-import { createHash, createHmac, randomBytes, timingSafeEqual } from "crypto";
+import { createHash, createHmac, timingSafeEqual } from "crypto";
 import { promises as fs } from "fs";
 import path from "path";
 import { NextResponse } from "next/server";
@@ -31,7 +31,6 @@ const SECURITY_LOG_PATH = path.join(process.cwd(), "db", "security-events.json")
 export const ADMIN_COOKIE = "fleet_admin";
 export const ADMIN_TTL_MS = 12 * 3600_000; // sessions expire — hours, not forever
 const CHALLENGE_TTL_MS = 120_000; // one-time confirm window: 2 minutes
-const MAX_CHALLENGES = 50;
 const MAX_SECURITY_EVENTS = 100;
 
 // ─── password / open mode ─────────────────────────────────────────────────────
@@ -169,29 +168,59 @@ export function requireAdmin(request: Request): NextResponse | null {
 }
 
 // ─── one-time challenge tokens (step-up for destructive ops) ─────────────────
+//
+// WHY SIGNED, NOT IN-MEMORY: /api/auth (issuer) and the destructive route
+// (consumer) compile to DIFFERENT route bundles — on Vercel they can be
+// different lambdas with isolated memory. A Map-based store can never hand a
+// token across that boundary (found the hard way: challenge issued → consume
+// failed with 403). So challenges are HMAC-signed, short-TTL (120s) and
+// op-bound — stateless and verifiable by any route. Single-use is enforced
+// best-effort via a per-warm-instance consumed set; a cross-lambda replay
+// within the 120s window is theoretically possible and accepted (the token
+// only proves a signed-in admin pressed "confirm" in the last 2 minutes —
+// it grants nothing by itself).
 
-interface Challenge {
-  op: string;
-  exp: number;
+const CHALLENGE_PREFIX = "fc1.";
+
+function signChallenge(op: string, exp: number): string {
+  const payload = b64url(JSON.stringify({ op, exp }));
+  const sig = createHmac("sha256", sessionSecret()).update(payload).digest("base64url");
+  return `${CHALLENGE_PREFIX}${payload}.${sig}`;
 }
-const challenges = new Map<string, Challenge>();
 
 export function issueChallenge(op: string): { token: string; expiresIn: number } {
-  // prune expired first so the cap never evicts live tokens
-  for (const [k, c] of challenges) if (c.exp < Date.now()) challenges.delete(k);
-  while (challenges.size >= MAX_CHALLENGES) {
-    challenges.delete(challenges.keys().next().value as string);
-  }
-  const token = randomBytes(24).toString("hex");
-  challenges.set(token, { op, exp: Date.now() + CHALLENGE_TTL_MS });
-  return { token, expiresIn: Math.round(CHALLENGE_TTL_MS / 1000) };
+  const exp = Date.now() + CHALLENGE_TTL_MS;
+  return { token: signChallenge(op, exp), expiresIn: Math.round(CHALLENGE_TTL_MS / 1000) };
 }
 
+// best-effort single-use ledger (per warm instance — see header note)
+const consumedChallenges = new Map<string, number>();
+
 export function consumeChallenge(token: string, op: string): boolean {
-  const c = challenges.get(token);
-  if (!c) return false;
-  challenges.delete(token); // single-use, even on mismatch
-  return c.op === op && c.exp > Date.now();
+  if (!token.startsWith(CHALLENGE_PREFIX)) return false;
+  const rest = token.slice(CHALLENGE_PREFIX.length);
+  const dot = rest.indexOf(".");
+  if (dot <= 0) return false;
+  const payload = rest.slice(0, dot);
+  const sig = rest.slice(dot + 1);
+  const expect = createHmac("sha256", sessionSecret()).update(payload).digest("base64url");
+  if (!safeEqual(sig, expect)) return false;
+  try {
+    const parsed = JSON.parse(Buffer.from(payload, "base64url").toString()) as {
+      op?: string;
+      exp?: number;
+    };
+    if (!parsed.op || parsed.op !== op) return false;
+    if (!parsed.exp || parsed.exp < Date.now()) return false;
+    if (consumedChallenges.has(token)) return false;
+    consumedChallenges.set(token, parsed.exp);
+    // prune expired entries (tokens live 120s — the ledger stays tiny)
+    const now = Date.now();
+    for (const [k, exp] of consumedChallenges) if (exp < now) consumedChallenges.delete(k);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Guard helper: null = proceed; NextResponse = reject (400). */
