@@ -27,6 +27,12 @@ import {
   disconnectVercel,
   vercelStatus,
 } from "@/lib/vercel-ops";
+import {
+  consumeChallenge,
+  logSecurityEvent,
+  requireAdmin,
+  requireChallenge,
+} from "@/lib/security";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +40,10 @@ function keyHint(key: string): string {
   return `${key.slice(0, 8)}…${key.slice(-4)}`;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  // sessions metadata (key hints, labels) is admin-only material
+  const gate = requireAdmin(request);
+  if (gate) return gate;
   const [github, vercel, sessions, activity] = await Promise.all([
     githubStatus(),
     vercelStatus(),
@@ -61,6 +70,10 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  // management plane: mint/revoke/connect require a signed-in admin
+  const gate = requireAdmin(request);
+  if (gate) return gate;
+
   let body: Record<string, unknown>;
   try {
     body = (await request.json()) as Record<string, unknown>;
@@ -68,6 +81,37 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "Invalid JSON body." }, { status: 400 });
   }
   const action = String(body.action ?? "");
+
+  // vault-token removal is destructive → one-time challenge required
+  if (action === "disconnect-github") {
+    const ch = requireChallenge(body, "agent-disconnect-github");
+    if (ch) return ch;
+    await disconnectGithub();
+    await logActivity({
+      t: new Date().toISOString(),
+      label: "dashboard (admin)",
+      provider: "github",
+      op: "disconnect vault token (challenge-confirmed)",
+      ok: true,
+      status: 200,
+    });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "disconnect-vercel") {
+    const ch = requireChallenge(body, "agent-disconnect-vercel");
+    if (ch) return ch;
+    await disconnectVercel();
+    await logActivity({
+      t: new Date().toISOString(),
+      label: "dashboard (admin)",
+      provider: "vercel",
+      op: "disconnect vault token (challenge-confirmed)",
+      ok: true,
+      status: 200,
+    });
+    return NextResponse.json({ ok: true });
+  }
 
   try {
     switch (action) {
@@ -83,11 +127,17 @@ export async function POST(request: Request) {
         if (res.ok) {
           await logActivity({
             t: new Date().toISOString(),
-            label: "dashboard",
+            label: "dashboard (admin)",
             provider: "github",
             op: "connect vault token",
             ok: true,
             status: 200,
+          });
+        } else {
+          await logSecurityEvent({
+            kind: "vault-connect-rejected",
+            detail: `github connect failed: ${res.error ?? "unknown"}`,
+            request,
           });
         }
         return res.ok
@@ -96,8 +146,10 @@ export async function POST(request: Request) {
       }
 
       case "disconnect-github": {
-        await disconnectGithub();
-        return NextResponse.json({ ok: true });
+        return NextResponse.json(
+          { ok: false, error: "use the challenge flow (see top of POST)" },
+          { status: 400 },
+        );
       }
 
       case "connect-vercel": {
@@ -115,8 +167,10 @@ export async function POST(request: Request) {
       }
 
       case "disconnect-vercel": {
-        await disconnectVercel();
-        return NextResponse.json({ ok: true });
+        return NextResponse.json(
+          { ok: false, error: "use the challenge flow (see top of POST)" },
+          { status: 400 },
+        );
       }
 
       case "create-session": {
@@ -139,7 +193,7 @@ export async function POST(request: Request) {
         });
         await logActivity({
           t: new Date().toISOString(),
-          label: "dashboard",
+          label: "dashboard (admin)",
           provider: "-",
           op: `minted agent link “${session.label}” (${scopes.join(", ")})`,
           ok: true,
@@ -163,7 +217,7 @@ export async function POST(request: Request) {
         }
         await logActivity({
           t: new Date().toISOString(),
-          label: "dashboard",
+          label: "dashboard (admin)",
           provider: "-",
           op: "revoked an agent link",
           ok: true,
