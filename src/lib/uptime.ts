@@ -47,7 +47,11 @@ export async function recordUptime(
     list.push({ t: now, ok: s.ok, score: s.score });
     store[s.host] = list.slice(-MAX_PER_HOST);
   }
-  await fs.writeFile(UPTIME_PATH, JSON.stringify(store), "utf8");
+  try {
+    await fs.writeFile(UPTIME_PATH, JSON.stringify(store), "utf8");
+  } catch {
+    /* read-only FS (serverless) — history is best-effort */
+  }
 }
 
 export function uptimeStats(samples: UptimeSample[] | undefined): SiteUptime {
