@@ -43,7 +43,7 @@ export function AppNav() {
             Fleet Control
           </span>
           <span className="hidden rounded border border-white/10 bg-white/5 px-1 py-px font-mono text-[9px] text-zinc-500 sm:inline">
-            v17
+            v18
           </span>
           {auth.ready && auth.openMode && (
             <span
