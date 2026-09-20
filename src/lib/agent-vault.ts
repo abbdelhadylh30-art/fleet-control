@@ -242,14 +242,26 @@ export async function revokeSession(id: string): Promise<boolean> {
 
 /**
  * Split the FLEET_AGENT_KEYS value into entries. "|" separates entries
- * (canonical — an entry's scope spec itself uses ",", so comma-splitting the
- * whole value silently truncated multi-scope entries to their first scope,
- * caught during the v14.1 rotation). "," is still accepted so legacy values
- * of bare keys keep working.
+ * (canonical — an entry's scope spec itself uses ","). Legacy comma-joined
+ * values are handled by re-attaching any fragment that does not start with
+ * "flk_" to the previous entry (scope fragments never start with flk_, keys
+ * always do). Comma-splitting the whole value used to truncate multi-scope
+ * entries to their first scope — caught during the v14.1 rotation.
  */
 export function splitKeyEntries(raw: string): string[] {
-  const parts = raw.includes("|") ? raw.split("|") : raw.split(",");
-  return parts.map((s) => s.trim()).filter(Boolean);
+  const fragments = raw
+    .split(/[|,]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const entries: string[] = [];
+  for (const frag of fragments) {
+    if (frag.startsWith("flk_") || entries.length === 0) {
+      entries.push(frag);
+    } else {
+      entries[entries.length - 1] += `,${frag}`;
+    }
+  }
+  return entries;
 }
 
 /**
