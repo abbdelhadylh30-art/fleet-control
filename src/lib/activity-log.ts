@@ -1,7 +1,4 @@
-import { promises as fs } from "fs";
-import path from "path";
-
-const LOG_PATH = path.join(process.cwd(), "db", "indexnow-log.json");
+import { readState, writeState } from "@/lib/pg-state";
 
 export interface LogEntry {
   ts: string;
@@ -13,23 +10,18 @@ export interface LogEntry {
   auto?: boolean; // fired by the self-driving pipeline (not a manual submit)
 }
 
+const KEY = "indexnow-log";
+const MAX_KEPT = 300;
+
 export async function readLog(): Promise<LogEntry[]> {
-  try {
-    const raw = await fs.readFile(LOG_PATH, "utf8");
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as LogEntry[]) : [];
-  } catch {
-    return [];
-  }
+  const parsed = await readState<LogEntry[]>(KEY);
+  return Array.isArray(parsed) ? parsed : [];
 }
 
 export async function appendLog(entries: LogEntry[]): Promise<void> {
-  const all = [...entries, ...(await readLog())].slice(0, 300);
-  try {
-    await fs.writeFile(LOG_PATH, JSON.stringify(all, null, 2), "utf8");
-  } catch {
-    /* read-only FS (serverless) — log is best-effort */
-  }
+  const all = [...entries, ...(await readLog())].slice(0, MAX_KEPT);
+  // Postgres (durable) with file fallback — submissions history survives cold starts
+  await writeState(KEY, all);
 }
 
 export function totalSubmitted(entries: LogEntry[]): number {
