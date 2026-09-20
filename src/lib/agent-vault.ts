@@ -241,7 +241,19 @@ export async function revokeSession(id: string): Promise<boolean> {
 }
 
 /**
- * Parse one FLEET_AGENT_KEYS entry. Entries are comma-separated and look like
+ * Split the FLEET_AGENT_KEYS value into entries. "|" separates entries
+ * (canonical — an entry's scope spec itself uses ",", so comma-splitting the
+ * whole value silently truncated multi-scope entries to their first scope,
+ * caught during the v14.1 rotation). "," is still accepted so legacy values
+ * of bare keys keep working.
+ */
+export function splitKeyEntries(raw: string): string[] {
+  const parts = raw.includes("|") ? raw.split("|") : raw.split(",");
+  return parts.map((s) => s.trim()).filter(Boolean);
+}
+
+/**
+ * Parse one FLEET_AGENT_KEYS entry. Entries look like
  *   flk_<hex>                          → scopes fall back to FLEET_AGENT_SCOPES
  *   flk_<hex>:github:read,vercel:read  → fine-grained per-key scopes
  * (keys themselves never contain ":", so the first colon is the separator —
@@ -268,10 +280,7 @@ function parseScopes(spec: string): AgentScope[] {
  * (default: all four).
  */
 function envSession(key: string): AgentSession | null {
-  const entries = (process.env.FLEET_AGENT_KEYS ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const entries = splitKeyEntries(process.env.FLEET_AGENT_KEYS ?? "");
   const matched = entries
     .map(parseKeyEntry)
     .find((e) => e.key === key);
