@@ -23,6 +23,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useChallengeAction } from "@/lib/challenge-client";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -86,6 +87,8 @@ export function VercelOpsPanel() {
   const [moveResults, setMoveResults] = useState<
     Array<{ domain: string; ok: boolean; detail: string }>
   >([]);
+  // destructive ops → two-step confirmation (one-time challenge tokens)
+  const challenge = useChallengeAction();
 
   const loadStatus = useCallback(async () => {
     try {
@@ -126,20 +129,22 @@ export function VercelOpsPanel() {
   };
 
   const disconnect = async () => {
-    try {
-      await fetch("/api/vercel", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "disconnect" }),
-      });
-      const { toast } = await import("sonner");
-      toast.success("Vercel token removed from the server");
-      setAudit(null);
-      setMoveResults([]);
-      await loadStatus();
-    } catch {
-      /* non-fatal */
-    }
+    await challenge.trigger("vercel-disconnect", async (confirmToken) => {
+      try {
+        await fetch("/api/vercel", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "disconnect", confirmToken }),
+        });
+        const { toast } = await import("sonner");
+        toast.success("Vercel token removed from the server");
+        setAudit(null);
+        setMoveResults([]);
+        await loadStatus();
+      } catch {
+        /* non-fatal */
+      }
+    });
   };
 
   const runAudit = async () => {
@@ -167,44 +172,46 @@ export function VercelOpsPanel() {
   };
 
   const moveDomain = async (domain: string, toProject: string) => {
-    setMoving(domain);
-    try {
-      const res = await fetch("/api/vercel", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "reattach", domain, toProject }),
-      });
-      const json = (await res.json()) as {
-        ok?: boolean;
-        error?: string;
-        moved?: { from: string | null; to: string };
-      };
-      const { toast } = await import("sonner");
-      if (res.ok && json.ok) {
-        toast.success(
-          `${domain} → ${toProject}${json.moved?.from ? ` (detached from ${json.moved.from})` : ""}`,
-          { duration: 6000 },
-        );
+    await challenge.trigger("vercel-reattach", async (confirmToken) => {
+      setMoving(domain);
+      try {
+        const res = await fetch("/api/vercel", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "reattach", domain, toProject, confirmToken }),
+        });
+        const json = (await res.json()) as {
+          ok?: boolean;
+          error?: string;
+          moved?: { from: string | null; to: string };
+        };
+        const { toast } = await import("sonner");
+        if (res.ok && json.ok) {
+          toast.success(
+            `${domain} → ${toProject}${json.moved?.from ? ` (detached from ${json.moved.from})` : ""}`,
+            { duration: 6000 },
+          );
+          setMoveResults((r) => [
+            { domain, ok: true, detail: `now served by ${toProject}` },
+            ...r,
+          ]);
+        } else {
+          toast.error(json.error ?? "Move failed", { duration: 8000 });
+          setMoveResults((r) => [
+            { domain, ok: false, detail: json.error ?? `HTTP ${res.status}` },
+            ...r,
+          ]);
+        }
+        await loadStatus();
+      } catch (e) {
         setMoveResults((r) => [
-          { domain, ok: true, detail: `now served by ${toProject}` },
+          { domain, ok: false, detail: e instanceof Error ? e.message : "network error" },
           ...r,
         ]);
-      } else {
-        toast.error(json.error ?? "Move failed", { duration: 8000 });
-        setMoveResults((r) => [
-          { domain, ok: false, detail: json.error ?? `HTTP ${res.status}` },
-          ...r,
-        ]);
+      } finally {
+        setMoving(null);
       }
-      await loadStatus();
-    } catch (e) {
-      setMoveResults((r) => [
-        { domain, ok: false, detail: e instanceof Error ? e.message : "network error" },
-        ...r,
-      ]);
-    } finally {
-      setMoving(null);
-    }
+    });
   };
 
   const fixable = (audit?.findings ?? []).filter((f) => f.ok === false);
@@ -312,9 +319,16 @@ export function VercelOpsPanel() {
             size="sm"
             variant="ghost"
             onClick={() => void disconnect()}
-            className="h-8 gap-1 px-2 text-[11px] text-zinc-500 hover:bg-white/5 hover:text-rose-300"
+            className={`h-8 gap-1 px-2 text-[11px] transition-colors ${
+              challenge.armedOp === "vercel-disconnect"
+                ? "bg-amber-500/15 text-amber-300 hover:bg-amber-500/20"
+                : "text-zinc-500 hover:bg-white/5 hover:text-rose-300"
+            }`}
           >
-            <Unplug className="h-3 w-3" /> disconnect
+            <Unplug className="h-3 w-3" />{" "}
+            {challenge.armedOp === "vercel-disconnect"
+              ? `confirm (${challenge.secondsLeft}s)`
+              : "disconnect"}
           </Button>
           <span className="text-[10px] text-zinc-600">
             {status.savedAt ? `token saved ${relativeTime(status.savedAt)}` : ""}
@@ -348,14 +362,20 @@ export function VercelOpsPanel() {
                   size="sm"
                   disabled={moving !== null}
                   onClick={() => void moveDomain(f.domain, f.expectedProject as string)}
-                  className="h-7 shrink-0 gap-1 rounded-lg bg-emerald-500/15 px-2.5 text-[11px] font-semibold text-emerald-400 ring-1 ring-emerald-500/25 transition-all hover:bg-emerald-500/25 hover:text-emerald-300"
+                  className={`h-7 shrink-0 gap-1 rounded-lg px-2.5 text-[11px] font-semibold ring-1 transition-all ${
+                    challenge.armedOp === "vercel-reattach"
+                      ? "animate-pulse bg-amber-500/20 text-amber-200 ring-amber-500/40 hover:bg-amber-500/30"
+                      : "bg-emerald-500/15 text-emerald-400 ring-emerald-500/25 hover:bg-emerald-500/25 hover:text-emerald-300"
+                  }`}
                 >
                   {moving === f.domain ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
                     <ArrowRight className="h-3 w-3" />
                   )}
-                  Move to {f.expectedProject}
+                  {challenge.armedOp === "vercel-reattach"
+                    ? `Confirm move (${challenge.secondsLeft}s)`
+                    : `Move to ${f.expectedProject}`}
                 </Button>
               ) : null}
             </div>
