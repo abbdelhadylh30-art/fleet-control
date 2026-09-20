@@ -162,6 +162,7 @@ export function AgentAccessPanel() {
   const [minting, setMinting] = useState(false);
   const [minted, setMinted] = useState<MintedLink | null>(null);
   const [revoking, setRevoking] = useState<string | null>(null);
+  const [discBusy, setDiscBusy] = useState<"github" | "vercel" | null>(null);
   const [promoting, setPromoting] = useState(false);
   // one-time pairing codes — the link never enters the chat transcript
   const [pairCode, setPairCode] = useState<string | null>(null);
@@ -278,13 +279,20 @@ export function AgentAccessPanel() {
   };
 
   const disconnect = async (provider: "github" | "vercel") => {
-    await challenge.trigger(`agent-disconnect-${provider}`, async (confirmToken) => {
-      await post({ action: `disconnect-${provider}`, confirmToken });
-      toast.success(
-        `${provider === "github" ? "GitHub" : "Vercel"} token removed from the vault`,
-      );
+    setDiscBusy(provider);
+    try {
+      const json = await post({ action: `disconnect-${provider}` });
+      if (json.ok) {
+        toast.success(
+          `${provider === "github" ? "GitHub" : "Vercel"} token removed from the vault`,
+        );
+      } else {
+        toast.error(String(json.error ?? "disconnect failed"), { duration: 8000 });
+      }
       await load();
-    });
+    } finally {
+      setDiscBusy(null);
+    }
   };
 
   const toggleScope = (s: string) => {
@@ -465,17 +473,16 @@ export function AgentAccessPanel() {
               <Button
                 size="sm"
                 variant="ghost"
+                disabled={discBusy !== null}
                 onClick={() => void disconnect("github")}
-                className={`h-7 gap-1 px-2 text-[10px] transition-colors ${
-                  challenge.armedOp === "agent-disconnect-github"
-                    ? "bg-amber-500/15 text-amber-300 hover:bg-amber-500/20"
-                    : "text-zinc-500 hover:bg-white/5 hover:text-rose-300"
-                }`}
+                className="h-7 gap-1 px-2 text-[10px] text-zinc-500 transition-colors hover:bg-white/5 hover:text-rose-300"
               >
-                <Unplug className="h-3 w-3" />{" "}
-                {challenge.armedOp === "agent-disconnect-github"
-                  ? `confirm (${challenge.secondsLeft}s)`
-                  : "disconnect"}
+                {discBusy === "github" ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Unplug className="h-3 w-3" />
+                )}{" "}
+                {discBusy === "github" ? "disconnecting…" : "disconnect"}
               </Button>
             </div>
           ) : (
@@ -541,17 +548,16 @@ export function AgentAccessPanel() {
               <Button
                 size="sm"
                 variant="ghost"
+                disabled={discBusy !== null}
                 onClick={() => void disconnect("vercel")}
-                className={`h-7 gap-1 px-2 text-[10px] transition-colors ${
-                  challenge.armedOp === "agent-disconnect-vercel"
-                    ? "bg-amber-500/15 text-amber-300 hover:bg-amber-500/20"
-                    : "text-zinc-500 hover:bg-white/5 hover:text-rose-300"
-                }`}
+                className="h-7 gap-1 px-2 text-[10px] text-zinc-500 transition-colors hover:bg-white/5 hover:text-rose-300"
               >
-                <Unplug className="h-3 w-3" />{" "}
-                {challenge.armedOp === "agent-disconnect-vercel"
-                  ? `confirm (${challenge.secondsLeft}s)`
-                  : "disconnect"}
+                {discBusy === "vercel" ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Unplug className="h-3 w-3" />
+                )}{" "}
+                {discBusy === "vercel" ? "disconnecting…" : "disconnect"}
               </Button>
             </div>
           ) : (
