@@ -11,6 +11,7 @@ import { useAuth } from "@/components/auth-gate";
 const LINKS = [
   { href: "/", label: "Overview", hint: "fleet status" },
   { href: "/analytics", label: "Analytics", hint: "fleet analytics & auto-pilot" },
+  { href: "/postgres", label: "Postgres", hint: "per-app migration spaces" },
   { href: "/integrations", label: "Integrations", hint: "tokens & setup" },
   { href: "/activity", label: "Activity", hint: "submissions log" },
 ];
@@ -42,7 +43,7 @@ export function AppNav() {
             Fleet Control
           </span>
           <span className="hidden rounded border border-white/10 bg-white/5 px-1 py-px font-mono text-[9px] text-zinc-500 sm:inline">
-            v15
+            v17
           </span>
           {auth.ready && auth.openMode && (
             <span
