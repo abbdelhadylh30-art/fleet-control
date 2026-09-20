@@ -17,9 +17,9 @@ import { promises as fs } from "fs";
 import path from "path";
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "crypto";
 
+import { readState, writeState } from "@/lib/pg-state";
+
 const GITHUB_AUTH_PATH = path.join(process.cwd(), "db", "github-auth.json");
-const SESSIONS_PATH = path.join(process.cwd(), "db", "agent-sessions.json");
-const ACTIVITY_PATH = path.join(process.cwd(), "db", "agent-activity.json");
 
 const GITHUB_API = "https://api.github.com";
 const MAX_ACTIVITY = 200;
@@ -193,12 +193,13 @@ function newKey(): string {
 }
 
 export async function readSessions(): Promise<AgentSession[]> {
-  const store = await readJson<{ sessions: AgentSession[] }>(SESSIONS_PATH);
+  // Postgres (durable) with file fallback — minted links survive cold starts now
+  const store = await readState<{ sessions: AgentSession[] }>("agent-sessions");
   return store?.sessions ?? [];
 }
 
 async function writeSessions(sessions: AgentSession[]): Promise<void> {
-  await writeJson(SESSIONS_PATH, { sessions: sessions.slice(-MAX_SESSIONS) });
+  await writeState("agent-sessions", { sessions: sessions.slice(-MAX_SESSIONS) });
 }
 
 export interface CreatedSession {
@@ -619,13 +620,13 @@ export async function mintDerivedFromPairHash(
 // ─── activity audit log ──────────────────────────────────────────────────────
 
 export async function readActivity(): Promise<AgentActivityEntry[]> {
-  return (await readJson<AgentActivityEntry[]>(ACTIVITY_PATH)) ?? [];
+  return (await readState<AgentActivityEntry[]>("agent-activity")) ?? [];
 }
 
 export async function logActivity(entry: AgentActivityEntry): Promise<void> {
   const list = await readActivity();
   const next = [entry, ...list].slice(0, MAX_ACTIVITY);
-  await writeJson(ACTIVITY_PATH, next);
+  await writeState("agent-activity", next);
 }
 
 // ─── outbound helpers used by the proxy route ────────────────────────────────
