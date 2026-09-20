@@ -855,6 +855,17 @@ function FleetTrend({ trend }: { trend: FleetData["trend"] }) {
   const W = 160;
   const H = 30;
 
+  // NOTE: computed BEFORE `tooltip`/early-return — `tooltip` closes over
+  // `label`, and on fresh instances (empty history) the early-return path
+  // runs first; a late declaration would be a TDZ crash in production.
+  const avgs = pts.map((p) => p.avg);
+  const min = Math.min(...avgs);
+  const max = Math.max(...avgs);
+  const hasTrend = pts.length >= 2;
+  const label = hasTrend
+    ? `Fleet avg ${avgs[0]} → ${avgs[avgs.length - 1]} · min ${min} · max ${max} · last ${pts.length} fresh checks`
+    : "Fleet score trend — builds with each fresh check";
+
   const tooltip = (children: React.ReactNode) => (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -871,8 +882,7 @@ function FleetTrend({ trend }: { trend: FleetData["trend"] }) {
     </Tooltip>
   );
 
-  if (pts.length < 2) {
-    const label = "Fleet score trend — builds with each fresh check";
+  if (!hasTrend) {
     return tooltip(
       <div className="mt-1.5 flex items-center gap-2">
         <svg width={W} height={14} viewBox={`0 0 ${W} 14`}>
@@ -894,9 +904,6 @@ function FleetTrend({ trend }: { trend: FleetData["trend"] }) {
     );
   }
 
-  const avgs = pts.map((p) => p.avg);
-  const min = Math.min(...avgs);
-  const max = Math.max(...avgs);
   const lo = Math.max(0, min - 4);
   const hi = Math.min(100, max + 4);
   const span = Math.max(hi - lo, 1);
@@ -908,7 +915,6 @@ function FleetTrend({ trend }: { trend: FleetData["trend"] }) {
   const area = `1,${H - 1} ${line} ${W - 1},${H - 1}`;
   const up = avgs[avgs.length - 1] >= avgs[0];
   const stroke = up ? "#34d399" : "#fb7185";
-  const label = `Fleet avg ${avgs[0]} → ${avgs[avgs.length - 1]} · min ${min} · max ${max} · last ${pts.length} fresh checks`;
   const last = coords[coords.length - 1];
 
   return tooltip(
