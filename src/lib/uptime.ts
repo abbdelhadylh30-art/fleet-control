@@ -1,7 +1,6 @@
-import { promises as fs } from "fs";
-import path from "path";
+import { readState, writeState } from "@/lib/pg-state";
 
-const UPTIME_PATH = path.join(process.cwd(), "db", "uptime-log.json");
+const KEY = "uptime-log";
 const MAX_PER_HOST = 60;
 export const UPTIME_WINDOW = 12; // bars shown per site card
 
@@ -27,13 +26,8 @@ export interface SiteUptime {
 }
 
 export async function readUptime(): Promise<UptimeStore> {
-  try {
-    const raw = await fs.readFile(UPTIME_PATH, "utf8");
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? (parsed as UptimeStore) : {};
-  } catch {
-    return {};
-  }
+  const parsed = await readState<UptimeStore>(KEY);
+  return parsed && typeof parsed === "object" ? parsed : {};
 }
 
 export async function recordUptime(
@@ -47,11 +41,8 @@ export async function recordUptime(
     list.push({ t: now, ok: s.ok, score: s.score });
     store[s.host] = list.slice(-MAX_PER_HOST);
   }
-  try {
-    await fs.writeFile(UPTIME_PATH, JSON.stringify(store), "utf8");
-  } catch {
-    /* read-only FS (serverless) — history is best-effort */
-  }
+  // Postgres (durable) with file fallback — uptime history survives cold starts
+  await writeState(KEY, store);
 }
 
 export function uptimeStats(samples: UptimeSample[] | undefined): SiteUptime {
