@@ -163,6 +163,11 @@ export function AgentAccessPanel() {
   const [minted, setMinted] = useState<MintedLink | null>(null);
   const [revoking, setRevoking] = useState<string | null>(null);
   const [promoting, setPromoting] = useState(false);
+  // one-time pairing codes — the link never enters the chat transcript
+  const [pairCode, setPairCode] = useState<string | null>(null);
+  const [pairHint, setPairHint] = useState("");
+  const [pairSeconds, setPairSeconds] = useState(0);
+  const [pairLoading, setPairLoading] = useState(false);
   // destructive ops → two-step confirmation (one-time challenge tokens)
   const challenge = useChallengeAction();
 
@@ -178,6 +183,52 @@ export function AgentAccessPanel() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // pairing-code countdown — clears the code when it hits zero
+  useEffect(() => {
+    if (!pairCode) return;
+    const t = setInterval(() => {
+      setPairSeconds((s) => {
+        if (s <= 1) {
+          setPairCode(null);
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [pairCode]);
+
+  const makePair = async () => {
+    setPairLoading(true);
+    try {
+      const res = await fetch("/api/agent/pair", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{}",
+      });
+      const json = (await res.json()) as {
+        ok: boolean;
+        code?: string;
+        expiresAt?: string;
+        parentHint?: string;
+        error?: string;
+      };
+      if (!res.ok || !json.ok || !json.code) {
+        toast.error(String(json.error ?? "could not generate a pairing code"), { duration: 8000 });
+        return;
+      }
+      setPairCode(json.code);
+      setPairHint(json.parentHint ?? "");
+      const ms = json.expiresAt ? new Date(json.expiresAt).getTime() - Date.now() : 600_000;
+      setPairSeconds(Math.max(1, Math.round(ms / 1000)));
+      toast.success("Pairing code ready — paste it in chat, not the link", { duration: 6000 });
+    } catch {
+      toast.error("pairing request failed");
+    } finally {
+      setPairLoading(false);
+    }
+  };
 
   const post = async (
     body: Record<string, unknown>,
@@ -619,6 +670,55 @@ export function AgentAccessPanel() {
               );
             })}
           </div>
+        </div>
+
+        {/* pair a chat — one-time code, the link never enters the transcript */}
+        <div className="mb-4 rounded-xl border border-sky-500/20 bg-sky-500/[0.04] p-4">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <KeyRound className="h-3.5 w-3.5 text-sky-400" />
+            <span className="text-xs font-semibold text-zinc-200">
+              Pair a chat — no link in the transcript
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={pairLoading}
+              onClick={() => void makePair()}
+              className="ml-auto h-8 gap-1.5 border-sky-500/30 px-3 text-xs text-sky-300 hover:bg-sky-500/10"
+            >
+              {pairLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+              Generate pair code
+            </Button>
+          </div>
+          {pairCode ? (
+            <div className="space-y-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <code className="min-w-0 flex-1 truncate rounded-lg border border-white/10 bg-black/40 px-2.5 py-2 font-mono text-[11px] text-sky-300">
+                  {pairCode}
+                </code>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void copyText(pairCode, "Pairing code copied — paste it in chat")}
+                  className="h-9 shrink-0 gap-1.5 border-white/15 px-3 text-xs text-zinc-300 hover:bg-white/5"
+                >
+                  <Copy className="h-3.5 w-3.5" /> Copy code
+                </Button>
+              </div>
+              <p className="text-[10px] leading-relaxed text-zinc-500">
+                One-time · expires in <span className="font-semibold text-sky-300">{pairSeconds}s</span> · bound to{" "}
+                <span className="font-mono">{pairHint}</span>. Paste ONLY this code in chat — the AI exchanges it
+                for a 1-hour session at <span className="font-mono">/api/agent/exchange</span>. The agent link
+                itself stays here in the dashboard.
+              </p>
+            </div>
+          ) : (
+            <p className="text-[10px] leading-relaxed text-zinc-500">
+              A one-time 10-minute code your chat AI can trade for a 1-hour derived session — the long-lived
+              link never has to be pasted anywhere. Even if the transcript leaks, all it holds is a code that
+              is already dead.
+            </p>
+          )}
         </div>
 
         {/* minted result */}
