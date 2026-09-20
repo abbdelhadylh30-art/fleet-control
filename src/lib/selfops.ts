@@ -20,7 +20,7 @@ const WRITE_PROBE = path.join(process.cwd(), "db", ".write-probe");
 export interface SelfOpsStatus {
   fsWritable: boolean; // false on serverless → minted links don't persist
   project: string; // Vercel project name backing the deployed dashboard
-  envKeys: { hint: string }[]; // masked FLEET_AGENT_KEYS entries
+  envKeys: { hint: string; scopes: string[] }[]; // masked FLEET_AGENT_KEYS entries + effective scopes
   latest: {
     uid: string;
     readyState: string;
@@ -34,6 +34,23 @@ export interface SelfOpsStatus {
 
 function maskKey(key: string): string {
   return key.length > 12 ? `flk_…${key.slice(-4)}` : "flk_…";
+}
+
+/** Parse a FLEET_AGENT_KEYS entry → masked hint + effective scope list. */
+function describeKeyEntry(entry: string): { hint: string; scopes: string[] } {
+  const idx = entry.indexOf(":");
+  const key = idx === -1 ? entry : entry.slice(0, idx);
+  const spec =
+    idx === -1
+      ? process.env.FLEET_AGENT_SCOPES ??
+        "github:read,github:write,vercel:read,vercel:write"
+      : entry.slice(idx + 1);
+  const ALL = ["github:read", "github:write", "vercel:read", "vercel:write"];
+  const scopes = spec
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => (ALL as string[]).includes(s));
+  return { hint: maskKey(key), scopes };
 }
 
 async function vercelApi<T>(
@@ -89,7 +106,7 @@ export async function selfOpsStatus(): Promise<SelfOpsStatus> {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean)
-    .map((k) => ({ hint: maskKey(k) }));
+    .map(describeKeyEntry);
 
   interface DeploysShape {
     deployments?: {
@@ -170,7 +187,7 @@ export async function promoteSessionToEnv(
 
   const { readSessions } = await import("./agent-vault");
   const sessions = await readSessions();
-  const minted = sessions.some((s) => s.key === key && !s.revoked);
+  const minted = sessions.find((s) => s.key === key && !s.revoked);
   if (!minted) {
     return { ok: false, error: "key is not an active minted link on this instance" };
   }
@@ -189,10 +206,18 @@ export async function promoteSessionToEnv(
         "this instance can't see the deployment's env keys — open fleet.abdelhadygabriel.me and promote from there",
     };
   }
-  if (current.includes(key)) {
+  // entries may carry a scope suffix (`flk_…:github:read,…`) — compare on the
+  // key part only so an already-promoted scoped entry is detected either way
+  const existingKeyParts = current.map((e) => (e.indexOf(":") === -1 ? e : e.slice(0, e.indexOf(":"))));
+  if (existingKeyParts.includes(key)) {
     return { ok: true, updated: false, error: "key is already permanent" };
   }
-  const merged = [...current, key].join(",");
+
+  // Fine-grained by default: the promoted entry carries the scopes the link
+  // was minted with, instead of silently becoming all-powerful.
+  const entry =
+    minted.scopes.length > 0 ? `${key}:${minted.scopes.join(",")}` : key;
+  const merged = [...current, entry].join(",");
 
   const envRes = await vercelApi<{ created?: unknown }>(
     `/v10/projects/${encodeURIComponent(project())}/env?upsert=true`,
