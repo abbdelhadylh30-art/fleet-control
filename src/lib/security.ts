@@ -22,11 +22,9 @@
 // (header-first key, no-store, rate limits) so keys stop leaking sideways.
 
 import { createHash, createHmac, timingSafeEqual } from "crypto";
-import { promises as fs } from "fs";
-import path from "path";
 import { NextResponse } from "next/server";
 
-const SECURITY_LOG_PATH = path.join(process.cwd(), "db", "security-events.json");
+import { readState, writeState } from "@/lib/pg-state";
 
 export const ADMIN_COOKIE = "fleet_admin";
 export const ADMIN_TTL_MS = 12 * 3600_000; // sessions expire — hours, not forever
@@ -301,28 +299,16 @@ export async function logSecurityEvent(e: {
     `[fleet-security] ${event.kind} ip=${event.ip} ${event.detail} ua="${event.ua}"`,
   );
   try {
-    const raw = await fs.readFile(SECURITY_LOG_PATH, "utf8");
-    const list = (JSON.parse(raw) as SecurityEvent[]) ?? [];
-    await fs.writeFile(
-      SECURITY_LOG_PATH,
-      JSON.stringify([event, ...list].slice(0, MAX_SECURITY_EVENTS)),
-      { mode: 0o600 },
-    );
+    const list = (await readState<SecurityEvent[]>("security-events")) ?? [];
+    // Postgres (durable) with file fallback — the audit trail survives cold starts
+    await writeState("security-events", [event, ...list].slice(0, MAX_SECURITY_EVENTS));
   } catch {
-    // missing file (first event) or read-only FS (serverless) — console already
-    try {
-      await fs.writeFile(SECURITY_LOG_PATH, JSON.stringify([event]), { mode: 0o600 });
-    } catch {
-      /* serverless: console-only, accepted */
-    }
+    // state layer hiccup — console is still the durable channel (log drain)
+    console.error("[fleet-security] failed to persist security event", event.kind);
   }
 }
 
 export async function readSecurityEvents(): Promise<SecurityEvent[]> {
-  try {
-    const raw = await fs.readFile(SECURITY_LOG_PATH, "utf8");
-    return (JSON.parse(raw) as SecurityEvent[]) ?? [];
-  } catch {
-    return [];
-  }
+  const list = await readState<SecurityEvent[]>("security-events");
+  return Array.isArray(list) ? list : [];
 }
