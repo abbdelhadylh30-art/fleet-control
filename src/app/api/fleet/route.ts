@@ -12,6 +12,7 @@ import {
 } from "@/lib/fleet";
 import { readLog, totalSubmitted } from "@/lib/activity-log";
 import { autoSubmitArmed } from "@/lib/auto-submit";
+import { runAutoHeal } from "@/lib/autopilot";
 import { recordUptime, readUptime, uptimeStats } from "@/lib/uptime";
 import { buildPrevStates, updateIncidents } from "@/lib/incidents";
 import { readScoreHistory, recordScoreAvg } from "@/lib/score-history";
@@ -276,6 +277,19 @@ export async function GET(req: NextRequest) {
 
   const { gsc, bing } = await checkVerification();
 
+  // AUTO-PILOT: the fleet repairs itself — stale domain assignments get
+  // re-attached (even while up — wrong content is a defect), down sites get a
+  // guarded production redeploy (3h cooldown, never while a deploy is already
+  // building). Runs on every fresh check.
+  const autoPilot = await runAutoHeal(
+    sites.map((s) => ({
+      host: s.host,
+      repo: s.repo,
+      blocker: s.blocker,
+      ok: s.health.httpStatus === 200 && !s.health.error,
+    })),
+  );
+
   // fleet score trend — record one avg per fresh check (guarded: never record
   // when every host failed, that would be a sandbox/network artifact not truth)
   if (liveSites.length > 0) await recordScoreAvg(avgScore);
@@ -314,6 +328,7 @@ export async function GET(req: NextRequest) {
     bing,
     incidents: incidentView,
     trend,
+    autoPilot,
   };
 
   cache = { at: Date.now(), payload };
