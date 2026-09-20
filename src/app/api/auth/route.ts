@@ -121,6 +121,7 @@ export async function POST(request: Request) {
     const allowed = [
       "selfops-redeploy",
       "selfops-promote",
+      "selfops-neon",
       "vercel-reattach",
       "vercel-disconnect",
       "agent-disconnect-github",
