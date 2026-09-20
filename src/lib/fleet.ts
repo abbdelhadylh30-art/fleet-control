@@ -23,9 +23,19 @@ export interface FleetSiteDef {
   group: SiteGroup;
   note?: string;
   blocker?: string;
+  self?: boolean; // this dashboard itself — the radar watching the radar
 }
 
 export const FLEET: FleetSiteDef[] = [
+  {
+    id: "fleet",
+    host: "fleet.abdelhadygabriel.me",
+    label: "Fleet Control",
+    description: "This dashboard — the radar watches itself",
+    repo: "fleet-control",
+    group: "Tools & Apps",
+    self: true,
+  },
   {
     id: "apex",
     host: "www.abdelhadygabriel.me",
