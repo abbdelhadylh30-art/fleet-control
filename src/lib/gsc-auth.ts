@@ -1,17 +1,20 @@
 // ─── GSC OAuth "connect once" credential store ───────────────────────────────
 // The user authorizes ONCE via the consent link generated in the dashboard.
-// We store the resulting refresh token server-side (db/gsc-auth.json) and the
-// backend auto-refreshes short-lived access tokens from then on — no more
-// hourly token pasting.
+// We store the resulting refresh token server-side and the backend
+// auto-refreshes short-lived access tokens from then on — no more hourly
+// token pasting.
 //
-// SECURITY: secrets live only in this JSON file (chmod 600 attempt) and are
+// STORAGE: Postgres via pg-state (durable across serverless cold starts and
+// redeploys) with the classic db/gsc-auth.json file as transparent fallback
+// when no DATABASE_URL is configured.
+//
+// SECURITY: secrets live only in the server-side store and are
 // NEVER returned to the client, never logged. The API only exposes booleans
 // (connected / needsReauth) and timestamps.
 
-import { promises as fs } from "fs";
-import path from "path";
+import { readState, writeState, deleteState } from "@/lib/pg-state";
 
-const AUTH_PATH = path.join(process.cwd(), "db", "gsc-auth.json");
+const KEY = "gsc-auth";
 
 export interface GscAuthStore {
   clientId: string;
@@ -35,27 +38,18 @@ export interface GscAuthStatus {
 let memCache: { token: string; expiresAt: number } | null = null;
 
 async function readAuth(): Promise<GscAuthStore | null> {
-  try {
-    const raw = await fs.readFile(AUTH_PATH, "utf8");
-    const parsed = JSON.parse(raw) as GscAuthStore;
-    return parsed?.refreshToken && parsed?.clientId && parsed?.clientSecret
-      ? parsed
-      : null;
-  } catch {
-    return null;
-  }
+  const parsed = await readState<GscAuthStore>(KEY);
+  return parsed?.refreshToken && parsed?.clientId && parsed?.clientSecret
+    ? parsed
+    : null;
 }
 
 async function writeAuth(store: GscAuthStore | null): Promise<void> {
-  try {
-    if (store === null) {
-      await fs.rm(AUTH_PATH, { force: true });
-      return;
-    }
-    await fs.writeFile(AUTH_PATH, JSON.stringify(store), { mode: 0o600 });
-  } catch {
-    /* best-effort */
+  if (store === null) {
+    await deleteState(KEY);
+    return;
   }
+  await writeState(KEY, store);
 }
 
 /** Public-safe status for the dashboard — no secret material. */
