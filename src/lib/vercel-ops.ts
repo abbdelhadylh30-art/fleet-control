@@ -11,6 +11,8 @@
 import { promises as fs } from "fs";
 import path from "path";
 
+import { mutateState, readState } from "@/lib/pg-state";
+
 const VERCEL_AUTH_PATH = path.join(process.cwd(), "db", "vercel-auth.json");
 const API = "https://api.vercel.com";
 const FLEET_DOMAIN_SUFFIX = ".abdelhadygabriel.me";
@@ -26,9 +28,30 @@ export interface VercelStatus {
   connected: boolean;
   savedAt: string | null;
   account: { uid: string; username: string; email: string | null } | null;
+  disabledAt: string | null;
+}
+
+// True-disconnect marker (mirrors agent-vault.ts): a durable pg-state flag
+// suppresses BOTH the file store and the env fallback until reconnect.
+const VERCEL_DISABLE_KEY = "vault-disabled";
+
+async function vercelDisabledAt(): Promise<string | null> {
+  const flags = (await readState<{ vercel?: string }>(VERCEL_DISABLE_KEY)) ?? {};
+  return flags.vercel ?? null;
+}
+
+async function setVercelDisabled(disabled: boolean): Promise<void> {
+  await mutateState<{ github?: string; vercel?: string }>(VERCEL_DISABLE_KEY, (cur) => {
+    const next: { github?: string; vercel?: string } = { ...(cur ?? {}) };
+    if (disabled) next.vercel = new Date().toISOString();
+    else delete next.vercel;
+    return next;
+  });
 }
 
 async function readToken(): Promise<VercelAuthStore | null> {
+  // true disconnect: the durable marker wins over file AND env
+  if (await vercelDisabledAt()) return null;
   try {
     const raw = await fs.readFile(VERCEL_AUTH_PATH, "utf8");
     const parsed = JSON.parse(raw) as VercelAuthStore;
@@ -67,16 +90,19 @@ async function writeToken(store: VercelAuthStore | null): Promise<void> {
 }
 
 export async function vercelStatus(): Promise<VercelStatus> {
-  const store = await readToken();
+  const disabledAt = await vercelDisabledAt();
+  const store = disabledAt ? null : await readToken();
   return {
     connected: !!store,
     savedAt: store?.savedAt ?? null,
     account: store?.account ?? null,
+    disabledAt,
   };
 }
 
 export async function disconnectVercel(): Promise<void> {
   await writeToken(null);
+  await setVercelDisabled(true);
 }
 
 /** Validate a token against /v2/user and persist it. */
@@ -106,6 +132,7 @@ export async function connectVercel(
       user?: { uid?: string; username?: string; email?: string };
     };
     const user = body.user ?? {};
+    await setVercelDisabled(false);
     await writeToken({
       token,
       savedAt: new Date().toISOString(),
