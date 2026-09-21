@@ -4,7 +4,7 @@
 // and GitHub repo metadata via the vault. No secrets in the response.
 
 import { FLEET, GITHUB_OWNER } from "@/lib/fleet";
-import { readUptime } from "@/lib/uptime";
+import { readUptime, readUptimeRollups, rollupPct } from "@/lib/uptime";
 import { readScoreHistory, type ScorePoint } from "@/lib/score-history";
 import { readLog } from "@/lib/activity-log";
 import { readIncidents } from "@/lib/incidents";
@@ -19,7 +19,8 @@ import { vercelStatus } from "@/lib/vercel-ops";
 export interface HostUptimeStats {
   checked: number;
   up: number;
-  pct: number; // 0–100
+  pct: number; // 0–100 over the retained window
+  windowDays?: number; // days the pct covers (rollups, H3)
   lastAt: number | null; // epoch ms of newest sample
   avgScore: number; // mean SEO score across samples
 }
@@ -123,9 +124,10 @@ async function fetchDeployments(): Promise<DeployShape[]> {
 
 export async function buildAnalytics(): Promise<AnalyticsResponse> {
   const now = Date.now();
-  const [uptimeStore, scoreHistory, log, incidentsAll, autopilotConfig, autopilotLog, vercel] =
+  const [uptimeStore, uptimeRollups, scoreHistory, log, incidentsAll, autopilotConfig, autopilotLog, vercel] =
     await Promise.all([
       readUptime(),
+      readUptimeRollups(),
       readScoreHistory(),
       readLog(),
       readIncidents(),
@@ -135,17 +137,24 @@ export async function buildAnalytics(): Promise<AnalyticsResponse> {
     ]);
 
   // ── uptime per host ──────────────────────────────────────────────────────
+  // H3: checked/up/pct come from the daily rollups (up to 30d) when present;
+  // raw samples (~1h) only act as the fallback and feed lastAt/avgScore.
   const uptimeByHost: Record<string, HostUptimeStats> = {};
   let totalSamples = 0;
   let totalUp = 0;
-  for (const [host, samples] of Object.entries(uptimeStore)) {
-    const up = samples.filter((s) => s.ok).length;
-    totalSamples += samples.length;
+  const hosts = new Set([...Object.keys(uptimeStore), ...Object.keys(uptimeRollups)]);
+  for (const host of hosts) {
+    const samples = uptimeStore[host] ?? [];
+    const rolled = rollupPct(uptimeRollups[host]);
+    const checked = rolled ? rolled.checked : samples.length;
+    const up = rolled ? rolled.up : samples.filter((s) => s.ok).length;
+    totalSamples += checked;
     totalUp += up;
     uptimeByHost[host] = {
-      checked: samples.length,
+      checked,
       up,
-      pct: samples.length ? Math.round((up / samples.length) * 1000) / 10 : 100,
+      pct: checked ? Math.round((up / checked) * 1000) / 10 : 100,
+      windowDays: rolled ? rolled.windowDays : undefined,
       lastAt: samples.length ? samples[samples.length - 1].t : null,
       avgScore: samples.length
         ? Math.round(samples.reduce((a, s) => a + s.score, 0) / samples.length)

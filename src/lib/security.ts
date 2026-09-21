@@ -260,7 +260,7 @@ export function requireChallenge(
   );
 }
 
-// ─── rate limiting (in-memory, per warm instance — blunts abuse) ─────────────
+// ─── rate limiting ───────────────────────────────────────────────────────────
 
 const buckets = new Map<string, number[]>();
 
@@ -279,6 +279,64 @@ export function rateLimit(key: string, limit: number, windowMs: number): { ok: b
     }
   }
   return { ok: true, retryAfter: 0 };
+}
+
+// ─── durable rate limiting (2026-09-21 H7 fix) ───────────────────────────────
+// The in-memory limiter above is per warm serverless instance — N concurrent
+// lambdas meant N× the intended budget (proven live: 2 of 12 spoofed-IP login
+// attempts slipped through on a second instance). For auth-sensitive
+// endpoints the counter now ALSO lives in Postgres (the CAS-primitive state
+// layer from the H1 fix), so every instance shares one sliding window.
+//
+// Semantics: identical to rateLimit() — sliding window of hit timestamps,
+// checked-and-incremented atomically under optimistic-CAS. Returns null when
+// the state layer is unreachable (Neon hiccup) so callers can fall back to
+// the in-memory verdict instead of hard-failing logins.
+
+const RATE_LIMIT_KEY = "rate-limits";
+const RATE_LIMIT_MAX_KEYS = 400;
+
+type RateLimitStore = Record<string, number[]>;
+
+export async function durableRateLimit(
+  key: string,
+  limit: number,
+  windowMs: number,
+): Promise<{ ok: boolean; retryAfter: number } | null> {
+  // The verdict is captured from the CAS attempt that actually commits (the
+  // callback re-runs with fresh state on retry — the last run is the winner),
+  // so no read-back round-trip is needed to know if THIS call was counted.
+  let verdict: { ok: boolean; retryAfter: number } | null = null;
+  try {
+    await mutateState<RateLimitStore>(RATE_LIMIT_KEY, (cur) => {
+      const store: RateLimitStore = cur && typeof cur === "object" ? cur : {};
+      const now = Date.now();
+      const hits = (store[key] ?? []).filter((t) => now - t < windowMs);
+      if (hits.length < limit) {
+        hits.push(now);
+        verdict = { ok: true, retryAfter: 0 };
+      } else {
+        // over-limit hits don't extend the window
+        verdict = {
+          ok: false,
+          retryAfter: Math.ceil((windowMs - (now - hits[0])) / 1000),
+        };
+      }
+      store[key] = hits;
+      // bound the blob: drop fully-stale keys once the store grows
+      const ks = Object.keys(store);
+      if (ks.length > RATE_LIMIT_MAX_KEYS) {
+        for (const k of ks) {
+          if (store[k].every((t) => now - t > windowMs)) delete store[k];
+        }
+      }
+      return store;
+    });
+    return verdict;
+  } catch {
+    // state layer hiccup — caller falls back to the in-memory limiter
+    return null;
+  }
 }
 
 // ─── request metadata ─────────────────────────────────────────────────────────

@@ -457,9 +457,11 @@ function SiteCard({
 
 function UptimeBars({ uptime }: { uptime: SiteUptime }) {
   const bars = uptime.recent;
+  // H3: honest label — the percentage covers the rollup window (up to 30d),
+  // not just the raw samples behind the bars (last ~hour).
   const label =
     uptime.checked > 0
-      ? `${uptime.pct}% uptime · last ${uptime.checked} checks`
+      ? `${uptime.pct}% uptime · ${uptime.windowDays ? `${uptime.windowDays}d · ` : ""}${uptime.checked} checks`
       : "No checks recorded yet";
   return (
     <Tooltip>
@@ -873,7 +875,7 @@ function FleetTrend({ trend }: { trend: FleetData["trend"] }) {
   const max = Math.max(...avgs);
   const hasTrend = pts.length >= 2;
   const label = hasTrend
-    ? `Fleet avg ${avgs[0]} → ${avgs[avgs.length - 1]} · min ${min} · max ${max} · last ${pts.length} fresh checks`
+    ? `Fleet avg ${avgs[0]} → ${avgs[avgs.length - 1]} · min ${min} · max ${max} · hourly avg · ${pts.length}h of history`
     : "Fleet score trend — builds with each fresh check";
 
   const tooltip = (children: React.ReactNode) => (
@@ -908,7 +910,7 @@ function FleetTrend({ trend }: { trend: FleetData["trend"] }) {
           />
         </svg>
         <span className="whitespace-nowrap text-[9px] text-zinc-600">
-          trend builds with each fresh check
+          trend builds with each hourly rollup
         </span>
       </div>,
     );
@@ -1300,7 +1302,7 @@ export default function Home() {
     <AppShell
       footerExtra={
         <span className="font-mono">
-          uptime {data ? `${data.summary.uptimePct}%` : "—"} · auto-refresh{" "}
+          uptime {data ? `${data.summary.uptimePct}%${data.summary.uptimeWindowDays ? ` (${data.summary.uptimeWindowDays}d)` : ""}` : "—"} · auto-refresh{" "}
           {autoRefresh ? `every ${refreshSec}s` : "off"}
         </span>
       }
@@ -1338,12 +1340,12 @@ export default function Home() {
                 {data && data.summary.uptimePct === 100 ? (
                   <span className="hidden items-center gap-1 rounded-full bg-emerald-500/5 px-2 py-0.5 text-[10px] font-medium text-emerald-500/80 ring-1 ring-emerald-500/15 lg:inline-flex">
                     <HeartPulse className="h-3 w-3" />
-                    100% uptime
+                    100% uptime{data.summary.uptimeWindowDays ? ` · ${data.summary.uptimeWindowDays}d` : ""}
                   </span>
                 ) : data ? (
                   <span className="hidden items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-400 ring-1 ring-amber-500/20 lg:inline-flex">
                     <HeartPulse className="h-3 w-3" />
-                    {data.summary.uptimePct}% uptime
+                    {data.summary.uptimePct}% uptime{data.summary.uptimeWindowDays ? ` · ${data.summary.uptimeWindowDays}d` : ""}
                   </span>
                 ) : null}
               </h1>

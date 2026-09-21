@@ -155,11 +155,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
                 <LockKeyhole className="relative h-5 w-5 text-emerald-400" />
               </span>
               <div>
-                <div className="flex items-center gap-1.5 text-sm font-semibold tracking-tight">
+                {/* L1 (2026-09-21): real h1 — the lock screen had no heading */}
+                <h1 className="flex items-center gap-1.5 text-sm font-semibold tracking-tight">
                   <Radar className="h-3.5 w-3.5 text-emerald-400" />
                   Fleet Control
-                </div>
-                <p className="text-xs text-zinc-500">Management plane locked</p>
+                </h1>
+                <p className="mt-0.5 text-xs text-zinc-500">Management plane locked</p>
               </div>
             </div>
 
@@ -170,7 +171,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               }}
               className="space-y-3"
             >
-              <label htmlFor="admin-password" className="sr-only">
+              {/* L1 (2026-09-21): visible label — a placeholder-only field loses
+                  its label the moment you start typing */}
+              <label
+                htmlFor="admin-password"
+                className="block text-xs font-medium text-zinc-400"
+              >
                 Admin password
               </label>
               <div className="relative">
@@ -183,16 +189,17 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
                     setPassword(e.target.value);
                     setError(null);
                   }}
-                  placeholder="admin password"
+                  placeholder="enter the admin password"
                   autoComplete="current-password"
                   autoFocus
-                  className="h-11 border-white/10 bg-black/30 pr-10 font-mono text-sm text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-emerald-500/40"
+                  className="h-11 border-white/10 bg-black/30 pr-12 font-mono text-sm text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-emerald-500/40"
                 />
+                {/* L1 (2026-09-21): 44px tap target — was a ~28px icon button */}
                 <button
                   type="button"
                   onClick={() => setShowPw((v) => !v)}
                   aria-label={showPw ? "Hide password" : "Show password"}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300"
+                  className="absolute inset-y-0 right-0 grid w-11 place-items-center rounded-md text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
                 >
                   {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -221,7 +228,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               </Button>
             </form>
 
-            <p className="mt-4 border-t border-white/5 pt-3 text-[11px] leading-relaxed text-zinc-600">
+            {/* L1 (2026-09-21): fine print 11px/zinc-600 → 12px/zinc-400 */}
+            <p className="mt-4 border-t border-white/5 pt-3 text-xs leading-relaxed text-zinc-400">
               Sessions expire after 12h. Agent links keep working while locked — this gate
               protects minting, vault tokens and redeploys.
             </p>

@@ -16,7 +16,7 @@ import {
   mintDerivedSession,
   verifyPairCode,
 } from "@/lib/agent-vault";
-import { logSecurityEvent, rateLimit } from "@/lib/security";
+import { durableRateLimit, logSecurityEvent, rateLimit } from "@/lib/security";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -40,16 +40,29 @@ export async function POST(request: Request) {
     ? body.scopes.map(String).slice(0, 8)
     : undefined;
 
-  // abuse cap on the exchange endpoint itself
+  // abuse cap on the exchange endpoint itself — H7 (2026-09-21): durable
+  // Postgres-backed window in addition to the in-memory one, so concurrent
+  // serverless instances can't multiply the budget on this auth-sensitive
+  // endpoint either.
   const limiterId = code ? `pair:${code.slice(5, 29)}` : `key:${parentKey.slice(0, 40)}`;
-  const rl = rateLimit(`exchange:${limiterId}`, 15, 10 * 60_000);
-  if (!rl.ok) {
+  const exKey = `exchange:${limiterId}`;
+  const rl = rateLimit(exKey, 15, 10 * 60_000);
+  let over = !rl.ok;
+  let retryAfter = rl.retryAfter;
+  if (!over) {
+    const durable = await durableRateLimit(exKey, 15, 10 * 60_000);
+    if (durable && !durable.ok) {
+      over = true;
+      retryAfter = durable.retryAfter;
+    }
+  }
+  if (over) {
     await logSecurityEvent({
       kind: "exchange-rate-limited",
       detail: "exchange endpoint flooded — throttled",
       request,
     });
-    return bad(`too many exchanges — retry in ${rl.retryAfter}s.`, 429);
+    return bad(`too many exchanges — retry in ${retryAfter}s.`, 429);
   }
 
   let result;

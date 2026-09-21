@@ -14,9 +14,9 @@ import { readLog, totalSubmitted } from "@/lib/activity-log";
 import { autoSubmitArmed } from "@/lib/auto-submit";
 import { runAutoHeal } from "@/lib/autopilot";
 import { getAdminAuth, requireAdmin } from "@/lib/security";
-import { recordUptime, readUptime, uptimeStats } from "@/lib/uptime";
+import { recordUptime, readUptime, readUptimeRollups, uptimeStats } from "@/lib/uptime";
 import { buildPrevStates, updateIncidents } from "@/lib/incidents";
-import { readScoreHistory, recordScoreAvg } from "@/lib/score-history";
+import { recordScoreAvg, readScoreRollups } from "@/lib/score-history";
 import type { VerifyStatus } from "@/lib/fleet";
 
 export const dynamic = "force-dynamic";
@@ -296,17 +296,38 @@ export async function GET(req: NextRequest) {
       ok: s.health.httpStatus === 200 && !s.health.error,
     })),
   );
-  const uptimeStore = await readUptime();
+  const [uptimeStore, uptimeRollups] = await Promise.all([readUptime(), readUptimeRollups()]);
   const sitesWithUptime = sites.map((s) => ({
     ...s,
-    uptime: uptimeStats(uptimeStore[s.host]),
+    uptime: uptimeStats(uptimeStore[s.host], uptimeRollups[s.host]),
   }));
-  const uptimeSamples = Object.values(uptimeStore).flat();
-  const fleetUptimePct = uptimeSamples.length
-    ? Math.round(
-        (uptimeSamples.filter((u) => u.ok).length / uptimeSamples.length) * 1000,
-      ) / 10
-    : 100;
+  // H3: fleet uptime is computed over the daily rollups (up to 30 days), not
+  // the ~1h of raw samples — and the window it really covers is reported so
+  // the UI can label the number honestly.
+  const rollupLists = Object.values(uptimeRollups);
+  const rollupTotals = rollupLists.reduce(
+    (acc, list) => {
+      for (const r of list) {
+        acc.n += r.n;
+        acc.up += r.up;
+        acc.minD = acc.minD === 0 ? Date.parse(`${r.d}T00:00:00Z`) : acc.minD;
+        acc.maxD = Math.max(acc.maxD, Date.parse(`${r.d}T00:00:00Z`));
+      }
+      return acc;
+    },
+    { n: 0, up: 0, minD: 0, maxD: 0 },
+  );
+  const rawSamples = Object.values(uptimeStore).flat();
+  const fleetUptimePct = rollupTotals.n
+    ? Math.round((rollupTotals.up / rollupTotals.n) * 1000) / 10
+    : rawSamples.length
+      ? Math.round(
+          (rawSamples.filter((u) => u.ok).length / rawSamples.length) * 1000,
+        ) / 10
+      : 100;
+  const uptimeWindowDays = rollupTotals.n
+    ? Math.max(1, Math.round((rollupTotals.maxD - rollupTotals.minD) / 86_400_000) + 1)
+    : undefined;
 
   const { gsc, bing } = await checkVerification();
 
@@ -326,8 +347,11 @@ export async function GET(req: NextRequest) {
   // fleet score trend — record one avg per fresh check (guarded: never record
   // when every host failed, that would be a sandbox/network artifact not truth)
   if (liveSites.length > 0) await recordScoreAvg(avgScore);
-  const scoreHistory = await readScoreHistory();
-  const trend = scoreHistory.slice(-60);
+  // H3: the chart reads hourly rollups (30-day retention) instead of raw
+  // points (~6h) — last 7 days of real history, one point per hour.
+  const trend = (await readScoreRollups())
+    .slice(-168)
+    .map((r) => ({ t: r.h, avg: Math.round(r.avg * 10) / 10 }));
 
   const payload: FleetResponse = {
     checkedAt: new Date().toISOString(),
@@ -346,6 +370,7 @@ export async function GET(req: NextRequest) {
       urlsSubmitted: totalSubmitted(logForCount),
       avgScore,
       uptimePct: fleetUptimePct,
+      uptimeWindowDays,
       downHosts: incidentView.active.map((i) => i.host),
       attention: sites
         .filter(

@@ -212,7 +212,8 @@ export interface FleetSummary {
   urlsSubmitted: number;
   attention: string[];
   avgScore: number; // fleet-wide mean SEO score (live sites)
-  uptimePct: number; // fleet-wide uptime over stored history
+  uptimePct: number; // fleet-wide uptime over stored history (rollups → up to 30d)
+  uptimeWindowDays?: number; // days the uptimePct actually covers (H3 honest label)
   downHosts: string[]; // hosts with an OPEN (unrecovered) incident
 }
 
@@ -224,7 +225,7 @@ export interface FleetResponse {
   gsc: VerifyStatus; // Google Search Console TXT verification on the apex domain
   bing: VerifyStatus; // BingSiteAuth.xml on www
   incidents: IncidentView; // open + recently resolved downtime incidents
-  trend: ScorePoint[]; // fleet avg score over stored fresh checks (oldest → newest)
+  trend: ScorePoint[]; // fleet avg score trend — hourly rollups, up to 7d (H3)
   autoPilot: { enabled: boolean; actions: AutoPilotAction[] }; // self-heal moves fired on this check
 }
 

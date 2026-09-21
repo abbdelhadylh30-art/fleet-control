@@ -17,6 +17,7 @@ import {
   authRequired,
   clearAdminCookieString,
   clientIp,
+  durableRateLimit,
   getAdminAuth,
   issueChallenge,
   logSecurityEvent,
@@ -86,8 +87,27 @@ export async function POST(request: Request) {
     // shared clientIp() — platform-set x-real-ip first, last-xff fallback.
     // The previous local copy trusted the first xff entry (spoofable) and was
     // the actual login rate-limit bypass from the 2026-09-20 audit.
-    const rl = rateLimit(`login:${clientIp(request)}`, LOGIN_MAX_ATTEMPTS, LOGIN_WINDOW_MS);
-    if (!rl.ok) {
+    //
+    // H7 (2026-09-21): the limiter is now TWO layers — the cheap in-memory
+    // window (fast fail on a warm instance) PLUS a Postgres-backed sliding
+    // window shared by every serverless instance, so N warm lambdas no longer
+    // multiply the attempt budget. State-layer hiccup → in-memory verdict only.
+    const rlKey = `login:${clientIp(request)}`;
+    const rl = rateLimit(rlKey, LOGIN_MAX_ATTEMPTS, LOGIN_WINDOW_MS);
+    if (rl.ok) {
+      const durable = await durableRateLimit(rlKey, LOGIN_MAX_ATTEMPTS, LOGIN_WINDOW_MS);
+      if (durable && !durable.ok) {
+        await logSecurityEvent({
+          kind: "login-rate-limited",
+          detail: `${durable.retryAfter}s cooldown (durable limiter)`,
+          request,
+        });
+        return NextResponse.json(
+          { ok: false, error: `Too many failed attempts — try again in ${durable.retryAfter}s.` },
+          { status: 429, headers: { "cache-control": "no-store" } },
+        );
+      }
+    } else {
       await logSecurityEvent({
         kind: "login-rate-limited",
         detail: `${rl.retryAfter}s cooldown`,
