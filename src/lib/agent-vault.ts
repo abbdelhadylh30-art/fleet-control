@@ -94,6 +94,38 @@ async function writeJson(p: string, data: unknown): Promise<void> {
   }
 }
 
+// ─── vault disable flags ("true disconnect", 2026-09-21) ────────────────────
+// Disconnecting used to only delete the local db/ file — on deployed
+// instances the env fallback (FLEET_GITHUB_TOKEN / FLEET_VERCEL_TOKEN) kept
+// the vault silently connected, which made the dashboard Disconnect button
+// feel broken. Now a disconnect writes a durable pg-state marker that
+// suppresses BOTH the file store and the env fallback until the user
+// reconnects. Reconnecting clears the marker.
+
+const VAULT_DISABLE_KEY = "vault-disabled";
+
+interface VaultDisableFlags {
+  github?: string; // ISO timestamp of disconnect
+  vercel?: string;
+}
+
+async function readDisableFlags(): Promise<VaultDisableFlags> {
+  return (await readState<VaultDisableFlags>(VAULT_DISABLE_KEY)) ?? {};
+}
+
+async function setDisableFlag(provider: "github" | "vercel", disabled: boolean): Promise<void> {
+  await mutateState<VaultDisableFlags>(VAULT_DISABLE_KEY, (cur) => {
+    const next: VaultDisableFlags = { ...(cur ?? {}) };
+    if (disabled) next[provider] = new Date().toISOString();
+    else delete next[provider];
+    return next;
+  });
+}
+
+export async function vaultDisableStatus(): Promise<VaultDisableFlags> {
+  return readDisableFlags();
+}
+
 // ─── GitHub token vault ──────────────────────────────────────────────────────
 
 /**
@@ -112,6 +144,8 @@ function envGithubStore(): GithubAuthStore | null {
 }
 
 export async function readGithubAuth(): Promise<GithubAuthStore | null> {
+  // true disconnect: a durable marker suppresses file AND env fallbacks
+  if ((await readDisableFlags()).github) return null;
   const store = await readJson<GithubAuthStore>(GITHUB_AUTH_PATH);
   return store?.token ? store : envGithubStore();
 }
@@ -120,14 +154,17 @@ export async function githubStatus(): Promise<{
   connected: boolean;
   savedAt: string | null;
   account: { login: string; type: string; scopes: string | null } | null;
+  disabledAt: string | null;
 }> {
-  const store = await readGithubAuth();
+  const disabledAt = (await readDisableFlags()).github ?? null;
+  const store = disabledAt ? null : await readGithubAuth();
   return {
     connected: !!store,
     savedAt: store?.savedAt ?? null,
     account: store
       ? { login: store.account.login, type: store.account.type, scopes: store.account.scopes }
       : null,
+    disabledAt,
   };
 }
 
@@ -164,6 +201,8 @@ export async function connectGithub(
     }
     const body = (await res.json()) as { login?: string; type?: string };
     const scopes = res.headers.get("x-oauth-scopes");
+    // reconnecting clears the disconnect marker — the vault is live again
+    await setDisableFlag("github", false);
     await writeJson(GITHUB_AUTH_PATH, {
       token,
       savedAt: new Date().toISOString(),
@@ -188,6 +227,24 @@ export async function disconnectGithub(): Promise<void> {
   } catch {
     /* best-effort */
   }
+  // suppress the env fallback too — this is what makes disconnect REAL
+  await setDisableFlag("github", true);
+}
+
+/**
+ * Default parent for approval-based access codes — the permanent env key on
+ * deployed instances, else the newest live minted link. Returns the parent
+ * HASH PREFIX only (sha256(key)[0:32]) — no plaintext ever leaves this module.
+ */
+export async function defaultAccessParent(): Promise<{
+  ph: string;
+  hint: string;
+  scopes: AgentScope[];
+} | null> {
+  const cands = await listParentCandidates();
+  const parent = cands.find((c) => c.label === "env agent link") ?? cands[0] ?? null;
+  if (!parent) return null;
+  return { ph: parent.keyHash.slice(0, 32), hint: parent.keyHint, scopes: parent.scopes };
 }
 
 // ─── sessions ────────────────────────────────────────────────────────────────
