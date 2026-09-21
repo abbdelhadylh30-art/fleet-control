@@ -12,7 +12,7 @@
 // NEVER returned to the client, never logged. The API only exposes booleans
 // (connected / needsReauth) and timestamps.
 
-import { readState, writeState, deleteState } from "@/lib/pg-state";
+import { mutateState, readState, writeState, deleteState } from "@/lib/pg-state";
 
 const KEY = "gsc-auth";
 
@@ -50,6 +50,19 @@ async function writeAuth(store: GscAuthStore | null): Promise<void> {
     return;
   }
   await writeState(KEY, store);
+}
+
+/**
+ * Merge field updates into the CURRENT auth store under optimistic-CAS
+ * (H1, 2026-09-21). Fixes the stale-refresh clobber: a slow token refresh
+ * that read an OLD store can no longer write it back over a NEWER
+ * credential saved by a reconnect in between — and it never resurrects a
+ * store that was disconnected while the refresh was in flight.
+ */
+async function mutateAuthFields(fields: Partial<GscAuthStore>): Promise<void> {
+  await mutateState<GscAuthStore>(KEY, (cur) =>
+    cur ? { ...cur, ...fields } : null,
+  );
 }
 
 /** Public-safe status for the dashboard — no secret material. */
@@ -106,8 +119,7 @@ export async function getStoredAccessToken(): Promise<string | null> {
       const invalidGrant =
         body.error === "invalid_grant" ||
         /invalid_grant|expired|revoked/i.test(body.error_description ?? "");
-      await writeAuth({
-        ...store,
+      await mutateAuthFields({
         needsReauth: invalidGrant || store.needsReauth || false,
         lastError: `${body.error ?? res.status}: ${(body.error_description ?? "refresh failed").slice(0, 160)}`,
       });
@@ -117,8 +129,7 @@ export async function getStoredAccessToken(): Promise<string | null> {
 
     const ttl = (body.expires_in ?? 3600) * 1000;
     memCache = { token: body.access_token, expiresAt: Date.now() + ttl };
-    await writeAuth({
-      ...store,
+    await mutateAuthFields({
       needsReauth: false,
       lastError: undefined,
       lastRefreshAt: new Date().toISOString(),
@@ -126,8 +137,7 @@ export async function getStoredAccessToken(): Promise<string | null> {
     });
     return memCache.token;
   } catch (e) {
-    await writeAuth({
-      ...store,
+    await mutateAuthFields({
       lastError: `network: ${e instanceof Error ? e.message : "refresh failed"}`,
     });
     memCache = null;

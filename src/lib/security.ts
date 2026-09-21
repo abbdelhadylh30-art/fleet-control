@@ -24,7 +24,7 @@
 import { createHash, createHmac, timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 
-import { readState, writeState } from "@/lib/pg-state";
+import { mutateState, readState } from "@/lib/pg-state";
 
 export const ADMIN_COOKIE = "fleet_admin";
 export const ADMIN_TTL_MS = 12 * 3600_000; // sessions expire — hours, not forever
@@ -330,9 +330,12 @@ export async function logSecurityEvent(e: {
     `[fleet-security] ${event.kind} ip=${event.ip} ${event.detail} ua="${event.ua}"`,
   );
   try {
-    const list = (await readState<SecurityEvent[]>("security-events")) ?? [];
+    // Atomic prepend under optimistic-CAS — concurrent requests can no longer
+    // drop each other's security events (H1, 2026-09-21).
     // Postgres (durable) with file fallback — the audit trail survives cold starts
-    await writeState("security-events", [event, ...list].slice(0, MAX_SECURITY_EVENTS));
+    await mutateState<SecurityEvent[]>("security-events", (cur) =>
+      [event, ...(cur ?? [])].slice(0, MAX_SECURITY_EVENTS),
+    );
   } catch {
     // state layer hiccup — console is still the durable channel (log drain)
     console.error("[fleet-security] failed to persist security event", event.kind);

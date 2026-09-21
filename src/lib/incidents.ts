@@ -1,4 +1,4 @@
-import { readState, writeState } from "@/lib/pg-state";
+import { mutateState, readState } from "@/lib/pg-state";
 import { readUptime } from "@/lib/uptime";
 
 const KEY = "incidents";
@@ -28,28 +28,32 @@ export async function readIncidents(): Promise<Incident[]> {
  *  - ok flip true→false  → open incident (or extend existing open one)
  *  - ok flip false→true  → close open incident (recoveredAt)
  *  - still down + open   → increment checks
+ *
+ * The whole reconcile runs inside mutateState's optimistic-CAS write, so
+ * concurrent checks (public GET + heartbeat autopilot + force re-check)
+ * can no longer clobber each other's incident updates (H1, 2026-09-21).
  */
 export async function updateIncidents(
   prevStates: Record<string, boolean | undefined>,
   results: Array<{ host: string; ok: boolean }>,
 ): Promise<IncidentView> {
-  const all = await readIncidents();
   const now = new Date().toISOString();
 
-  for (const { host, ok } of results) {
-    const prev = prevStates[host];
-    const openIdx = all.findIndex((i) => i.host === host && i.recoveredAt === null);
-    if (prev === undefined) continue; // first sample — nothing to compare
-    if (prev && !ok) {
-      if (openIdx >= 0) all[openIdx].checks += 1;
-      else all.push({ host, startedAt: now, recoveredAt: null, checks: 1 });
-    } else if (!prev && ok && openIdx >= 0) {
-      all[openIdx].recoveredAt = now;
+  const all = (await mutateState<Incident[]>(KEY, (cur) => {
+    const list = Array.isArray(cur) ? cur.map((i) => ({ ...i })) : [];
+    for (const { host, ok } of results) {
+      const prev = prevStates[host];
+      const openIdx = list.findIndex((i) => i.host === host && i.recoveredAt === null);
+      if (prev === undefined) continue; // first sample — nothing to compare
+      if (prev && !ok) {
+        if (openIdx >= 0) list[openIdx] = { ...list[openIdx], checks: list[openIdx].checks + 1 };
+        else list.push({ host, startedAt: now, recoveredAt: null, checks: 1 });
+      } else if (!prev && ok && openIdx >= 0) {
+        list[openIdx] = { ...list[openIdx], recoveredAt: now };
+      }
     }
-  }
-
-  // Postgres (durable) with file fallback — incident history survives cold starts
-  await writeState(KEY, all.slice(-MAX_KEPT));
+    return list.slice(-MAX_KEPT);
+  })) ?? [];
 
   return {
     active: all.filter((i) => i.recoveredAt === null),

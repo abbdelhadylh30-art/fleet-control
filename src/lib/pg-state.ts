@@ -73,8 +73,7 @@ export async function readState<T>(key: string): Promise<T | null> {
   return readFromFile<T>(key);
 }
 
-/**
- * Write a state blob: upsert into Postgres (durable) and best-effort mirror
+/** Write a state blob: upsert into Postgres (durable) and best-effort mirror
  * to the file (keeps local dev + any pre-PG reader in sync). Returns true
  * when the row was durably persisted in Postgres.
  */
@@ -95,4 +94,92 @@ export async function writeState(key: string, value: unknown): Promise<boolean> 
   }
   if (!persisted) await writeToFile(key, value);
   return persisted;
+}
+
+/**
+ * Atomic read-modify-write on a state blob (2026-09-21 H1 fix).
+ *
+ * The old pattern — `readState` → mutate in JS → `writeState` — loses every
+ * concurrent update (last write wins on the WHOLE blob), which corrupted the
+ * incident history (recoveredAt before startedAt) and drops security events,
+ * session call-counts and uptime samples under load.
+ *
+ * This helper runs the mutation against the row's CURRENT value and commits
+ * it with an optimistic compare-and-swap:
+ *
+ *   UPDATE "PgState" SET value=$next, version=version+1
+ *   WHERE key=$key AND version=$seen
+ *
+ * If another writer landed first, zero rows match → re-read and retry (with
+ * jittered backoff). Every statement is a single round-trip, so it is safe
+ * through Neon's transaction-mode pooler (no interactive transactions, no
+ * session pinning, no FOR UPDATE).
+ *
+ * Returning `null` from `mutate` DELETES the row (only if still at the
+ * version that was read). The callback must be pure-ish: it may run more
+ * than once when a retry happens.
+ *
+ * File-fallback mode (no DATABASE_URL) keeps the plain RMW — local dev is a
+ * single process, so the race doesn't exist there.
+ */
+export async function mutateState<T>(
+  key: string,
+  mutate: (current: T | null) => T | null,
+  opts: { retries?: number } = {},
+): Promise<T | null> {
+  const retries = opts.retries ?? 5;
+
+  if (!pgEnabled) {
+    const cur = await readFromFile<T>(key);
+    const next = mutate(cur);
+    if (next === null) {
+      await fs.rm(path.join(DB_DIR, `${key}.json`), { force: true }).catch(() => {});
+    } else {
+      await writeToFile(key, next);
+    }
+    return next;
+  }
+
+  for (let attempt = 0; ; attempt++) {
+    // Fresh read each attempt — carries the version we base the CAS on.
+    const row = await db.pgState.findUnique({ where: { key } });
+    const cur = (row?.value as T | undefined) ?? null;
+    const next = mutate(cur);
+    if (next === undefined) {
+      throw new TypeError(`mutateState(${key}): callback must return a value or null`);
+    }
+
+    if (next === null) {
+      if (!row) return null; // already gone — done
+      const n = await db.$executeRaw`
+        DELETE FROM "PgState" WHERE "key" = ${key} AND "version" = ${row.version}`;
+      if (n === 1) return null;
+      // else: version moved under us → retry
+    } else if (row) {
+      const n = await db.$executeRaw`
+        UPDATE "PgState"
+        SET "value" = ${JSON.stringify(next)}::jsonb,
+            "version" = "version" + 1,
+            "updatedAt" = now()
+        WHERE "key" = ${key} AND "version" = ${row.version}`;
+      if (n === 1) return next;
+      // else: lost the race → retry with a fresh read
+    } else {
+      const n = await db.$executeRaw`
+        INSERT INTO "PgState" ("key", "value", "version", "updatedAt")
+        VALUES (${key}, ${JSON.stringify(next)}::jsonb, 1, now())
+        ON CONFLICT ("key") DO NOTHING`;
+      if (n === 1) return next;
+      // else: someone created the row first → retry (row now exists)
+    }
+
+    if (attempt >= retries) {
+      throw new Error(
+        `mutateState(${key}): lost ${retries + 1} optimistic-write races — state too hot`,
+      );
+    }
+    // Jittered backoff so hot keys (agent-sessions on proxy bursts) don't
+    // lockstep into the same retry cadence.
+    await new Promise((r) => setTimeout(r, 30 * (attempt + 1) + Math.random() * 25));
+  }
 }

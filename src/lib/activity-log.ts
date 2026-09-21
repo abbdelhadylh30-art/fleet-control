@@ -1,4 +1,4 @@
-import { readState, writeState } from "@/lib/pg-state";
+import { mutateState, readState } from "@/lib/pg-state";
 
 export interface LogEntry {
   ts: string;
@@ -19,9 +19,12 @@ export async function readLog(): Promise<LogEntry[]> {
 }
 
 export async function appendLog(entries: LogEntry[]): Promise<void> {
-  const all = [...entries, ...(await readLog())].slice(0, MAX_KEPT);
+  // Atomic prepend under optimistic-CAS — concurrent submissions can no longer
+  // drop each other's log entries (H1, 2026-09-21).
   // Postgres (durable) with file fallback — submissions history survives cold starts
-  await writeState(KEY, all);
+  await mutateState<LogEntry[]>(KEY, (cur) =>
+    [...entries, ...(Array.isArray(cur) ? cur : [])].slice(0, MAX_KEPT),
+  );
 }
 
 export function totalSubmitted(entries: LogEntry[]): number {

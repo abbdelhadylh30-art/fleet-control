@@ -1,4 +1,4 @@
-import { readState, writeState } from "@/lib/pg-state";
+import { mutateState, readState } from "@/lib/pg-state";
 
 const KEY = "uptime-log";
 const MAX_PER_HOST = 60;
@@ -34,15 +34,18 @@ export async function recordUptime(
   samples: Array<{ host: string; ok: boolean; score: number }>,
 ): Promise<void> {
   if (samples.length === 0) return;
-  const store = await readUptime();
-  const now = Date.now();
-  for (const s of samples) {
-    const list = store[s.host] ?? [];
-    list.push({ t: now, ok: s.ok, score: s.score });
-    store[s.host] = list.slice(-MAX_PER_HOST);
-  }
-  // Postgres (durable) with file fallback — uptime history survives cold starts
-  await writeState(KEY, store);
+  // Atomic append under optimistic-CAS — concurrent checks (public GET +
+  // heartbeat + force) can no longer drop each other's samples (H1).
+  await mutateState<UptimeStore>(KEY, (cur) => {
+    const store: UptimeStore = cur && typeof cur === "object" ? cur : {};
+    const now = Date.now();
+    for (const s of samples) {
+      const list = store[s.host] ?? [];
+      list.push({ t: now, ok: s.ok, score: s.score });
+      store[s.host] = list.slice(-MAX_PER_HOST);
+    }
+    return store;
+  });
 }
 
 export function uptimeStats(samples: UptimeSample[] | undefined): SiteUptime {

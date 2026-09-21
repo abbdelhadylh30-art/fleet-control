@@ -17,7 +17,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "crypto";
 
-import { readState, writeState } from "@/lib/pg-state";
+import { mutateState, readState } from "@/lib/pg-state";
 
 const GITHUB_AUTH_PATH = path.join(process.cwd(), "db", "github-auth.json");
 
@@ -198,8 +198,18 @@ export async function readSessions(): Promise<AgentSession[]> {
   return store?.sessions ?? [];
 }
 
-async function writeSessions(sessions: AgentSession[]): Promise<void> {
-  await writeState("agent-sessions", { sessions: sessions.slice(-MAX_SESSIONS) });
+/**
+ * Atomic session-list mutation under optimistic-CAS (H1, 2026-09-21).
+ * Concurrent proxy calls (touchSession bursts) and dashboard edits (create/
+ * revoke) can no longer drop each other's changes. The callback may run more
+ * than once on retry — keep it pure.
+ */
+async function mutateSessions(
+  fn: (sessions: AgentSession[]) => AgentSession[],
+): Promise<void> {
+  await mutateState<{ sessions: AgentSession[] }>("agent-sessions", (cur) => ({
+    sessions: fn(cur?.sessions ?? []).slice(-MAX_SESSIONS),
+  }));
 }
 
 export interface CreatedSession {
@@ -212,7 +222,6 @@ export async function createSession(input: {
   scopes: AgentScope[];
   ttlHours: number;
 }): Promise<CreatedSession> {
-  const sessions = await readSessions();
   const ttl = Math.min(Math.max(Math.round(input.ttlHours), 1), 24 * 30);
   const session: AgentSession = {
     id: newId(),
@@ -225,7 +234,7 @@ export async function createSession(input: {
     callCount: 0,
     revoked: false,
   };
-  await writeSessions([...sessions, session]);
+  await mutateSessions((sessions) => [...sessions, session]);
   return {
     session,
     url: `/api/agent/proxy?session=${session.key}`,
@@ -233,12 +242,13 @@ export async function createSession(input: {
 }
 
 export async function revokeSession(id: string): Promise<boolean> {
-  const sessions = await readSessions();
-  const target = sessions.find((s) => s.id === id);
-  if (!target) return false;
-  target.revoked = true;
-  await writeSessions(sessions);
-  return true;
+  let found = false;
+  await mutateSessions((sessions) => {
+    if (!sessions.some((s) => s.id === id)) return sessions;
+    found = true;
+    return sessions.map((s) => (s.id === id ? { ...s, revoked: true } : s));
+  });
+  return found;
 }
 
 /**
@@ -372,12 +382,12 @@ export async function resolveSession(
 }
 
 export async function touchSession(id: string): Promise<void> {
-  const sessions = await readSessions();
-  const s = sessions.find((x) => x.id === id);
-  if (!s) return;
-  s.lastUsedAt = new Date().toISOString();
-  s.callCount += 1;
-  await writeSessions(sessions);
+  const now = new Date().toISOString();
+  await mutateSessions((sessions) =>
+    sessions.map((x) =>
+      x.id === id ? { ...x, lastUsedAt: now, callCount: x.callCount + 1 } : x,
+    ),
+  );
 }
 
 // ─── derived sessions + pairing codes (stateless HMAC — cold-start-proof) ───
@@ -624,9 +634,11 @@ export async function readActivity(): Promise<AgentActivityEntry[]> {
 }
 
 export async function logActivity(entry: AgentActivityEntry): Promise<void> {
-  const list = await readActivity();
-  const next = [entry, ...list].slice(0, MAX_ACTIVITY);
-  await writeState("agent-activity", next);
+  // Atomic prepend under optimistic-CAS — burst proxy calls can no longer drop
+  // each other's audit entries (H1, 2026-09-21).
+  await mutateState<AgentActivityEntry[]>("agent-activity", (cur) =>
+    [entry, ...(cur ?? [])].slice(0, MAX_ACTIVITY),
+  );
 }
 
 // ─── outbound helpers used by the proxy route ────────────────────────────────

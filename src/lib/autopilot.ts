@@ -14,7 +14,7 @@
 // and the guard above keeps behaviour safe regardless.
 
 import { GITHUB_OWNER } from "@/lib/fleet";
-import { readState, writeState } from "@/lib/pg-state";
+import { mutateState, readState, writeState } from "@/lib/pg-state";
 
 const MAX_LOG = 80;
 const COOLDOWN_MS = 3 * 60 * 60 * 1000; // one heal attempt per project per 3h
@@ -58,8 +58,11 @@ export async function readAutoPilotLog(): Promise<AutoPilotAction[]> {
 async function appendAutoPilotLog(entries: AutoPilotAction[]): Promise<void> {
   if (entries.length === 0) return;
   const stamped = entries.map((e) => ({ ...e, ts: new Date().toISOString() }));
-  const all = [...stamped, ...(await readAutoPilotLog())].slice(0, MAX_LOG);
-  await writeState("autopilot-log", all);
+  // Atomic prepend under optimistic-CAS — overlapping autopilot cycles can no
+  // longer drop each other's actions (H1, 2026-09-21).
+  await mutateState<AutoPilotAction[]>("autopilot-log", (cur) =>
+    [...stamped, ...(Array.isArray(cur) ? cur : [])].slice(0, MAX_LOG),
+  );
 }
 
 // ─── host → serving Vercel project (5-min module cache) ─────────────────────

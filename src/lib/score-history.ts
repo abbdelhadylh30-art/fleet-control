@@ -1,4 +1,4 @@
-import { readState, writeState } from "@/lib/pg-state";
+import { mutateState, readState } from "@/lib/pg-state";
 
 const KEY = "score-history";
 const MAX_POINTS = 720; // ~7 days of checks at 15-min cadence
@@ -20,8 +20,12 @@ export async function readScoreHistory(): Promise<ScorePoint[]> {
  */
 export async function recordScoreAvg(avg: number): Promise<void> {
   if (!Number.isFinite(avg) || avg <= 0) return;
-  const list = await readScoreHistory();
-  list.push({ t: Date.now(), avg });
+  // Atomic append under optimistic-CAS — concurrent checks can no longer drop
+  // each other's samples (H1, 2026-09-21).
   // Postgres (durable) with file fallback — the trend finally survives cold starts
-  await writeState(KEY, list.slice(-MAX_POINTS));
+  await mutateState<ScorePoint[]>(KEY, (cur) => {
+    const list = Array.isArray(cur) ? [...cur] : [];
+    list.push({ t: Date.now(), avg });
+    return list.slice(-MAX_POINTS);
+  });
 }

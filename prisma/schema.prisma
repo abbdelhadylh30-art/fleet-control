@@ -17,5 +17,6 @@ datasource db {
 model PgState {
   key       String   @id
   value     Json
+  version   Int      @default(0) // optimistic-concurrency guard for mutateState CAS writes
   updatedAt DateTime @updatedAt
 }
