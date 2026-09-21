@@ -23,6 +23,11 @@ import {
   revokeSession,
 } from "@/lib/agent-vault";
 import {
+  createAccessCode,
+  decideRequest,
+  revokeAccessCode,
+} from "@/lib/agent-access";
+import {
   connectVercel,
   disconnectVercel,
   vercelStatus,
@@ -213,6 +218,96 @@ export async function POST(request: Request) {
           status: 200,
         });
         return NextResponse.json({ ok: true });
+      }
+
+      // ── approval-based access management ────────────────────────────────
+
+      case "create-access-code": {
+        const scopes = Array.isArray(body.scopes)
+          ? (body.scopes.map(String) as AgentScope[]).filter((s) => ALL_SCOPES.includes(s))
+          : [];
+        if (scopes.length === 0) {
+          return NextResponse.json(
+            { ok: false, error: "Pick at least one scope for the access code." },
+            { status: 400 },
+          );
+        }
+        const ttlMinutes = Number(body.ttlMinutes ?? 15);
+        const res = await createAccessCode({
+          label: String(body.label ?? "ai access"),
+          scopes,
+          ttlMinutes: Number.isFinite(ttlMinutes) ? ttlMinutes : 15,
+        });
+        if (!res.ok) {
+          return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
+        }
+        await logActivity({
+          t: new Date().toISOString(),
+          label: "dashboard (admin)",
+          provider: "-",
+          op: `minted temp access code ${res.created.code.codeHint} for “${res.created.code.label}”`,
+          ok: true,
+          status: 200,
+        });
+        // plaintext returned exactly once — hash-only at rest
+        return NextResponse.json({
+          ok: true,
+          id: res.created.code.id,
+          code: res.created.plaintext,
+          codeHint: res.created.code.codeHint,
+          expiresAt: res.created.code.expiresAt,
+          scopes: res.created.code.scopes,
+        });
+      }
+
+      case "revoke-access-code": {
+        const done = await revokeAccessCode(String(body.id ?? ""));
+        if (!done) {
+          return NextResponse.json({ ok: false, error: "Unknown access code id." }, { status: 404 });
+        }
+        await logActivity({
+          t: new Date().toISOString(),
+          label: "dashboard (admin)",
+          provider: "-",
+          op: "revoked a temp access code",
+          ok: true,
+          status: 200,
+        });
+        return NextResponse.json({ ok: true });
+      }
+
+      case "approve-request": {
+        const id = String(body.id ?? "");
+        const res = await decideRequest(id, true);
+        if (!res.ok) {
+          return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
+        }
+        await logActivity({
+          t: new Date().toISOString(),
+          label: "dashboard (admin)",
+          provider: "-",
+          op: `APPROVED access request from “${res.request.clientName}” (${res.request.codeHint})`,
+          ok: true,
+          status: 200,
+        });
+        return NextResponse.json({ ok: true, status: res.request.status });
+      }
+
+      case "deny-request": {
+        const id = String(body.id ?? "");
+        const res = await decideRequest(id, false);
+        if (!res.ok) {
+          return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
+        }
+        await logActivity({
+          t: new Date().toISOString(),
+          label: "dashboard (admin)",
+          provider: "-",
+          op: `DENIED access request from “${res.request.clientName}” (${res.request.codeHint})`,
+          ok: true,
+          status: 200,
+        });
+        return NextResponse.json({ ok: true, status: res.request.status });
       }
 
       default:
