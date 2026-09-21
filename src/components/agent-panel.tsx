@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { AccessApprovalCard } from "@/components/access-approval-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -96,11 +97,13 @@ interface VaultStatus {
     connected: boolean;
     savedAt: string | null;
     account: { login: string; type: string; scopes: string | null } | null;
+    disabledAt?: string | null;
   };
   vercel: {
     connected: boolean;
     savedAt: string | null;
     account: { uid: string; username: string; email: string | null } | null;
+    disabledAt?: string | null;
   };
   scopes: string[];
   sessions: Array<{
@@ -284,7 +287,10 @@ export function AgentAccessPanel() {
       const json = await post({ action: `disconnect-${provider}` });
       if (json.ok) {
         toast.success(
-          `${provider === "github" ? "GitHub" : "Vercel"} token removed from the vault`,
+          `${
+            provider === "github" ? "GitHub" : "Vercel"
+          } token removed — the vault is fully disconnected (env fallback disabled too until you reconnect)`,
+          { duration: 7000 },
         );
       } else {
         toast.error(String(json.error ?? "disconnect failed"), { duration: 8000 });
@@ -392,14 +398,19 @@ export function AgentAccessPanel() {
   const activeCount = sessions.filter((s) => !s.revoked && new Date(s.expiresAt) > new Date()).length;
 
   return (
-    <div className="fade-up-item rounded-2xl border border-emerald-500/15 bg-zinc-900/60 p-5 backdrop-blur">
+    <div className="fade-up-item space-y-4">
+      {/* ── primary path: approval-based access (the AI asks, you decide) ── */}
+      <AccessApprovalCard />
+
+      {/* ── advanced path: direct agent links + the token vault ────────── */}
+      <div className="rounded-2xl border border-emerald-500/15 bg-zinc-900/60 p-5 backdrop-blur">
       {/* header */}
       <div className="mb-1 flex flex-wrap items-center gap-2">
         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 ring-1 ring-emerald-500/25">
           <KeyRound className="h-4 w-4 text-emerald-400" />
         </span>
         <h3 className="text-sm font-semibold text-zinc-100">
-          Agent access — connect tokens once, then just send the link
+          Vault &amp; direct links — tokens here, never in chat
         </h3>
         <Badge
           variant="outline"
@@ -412,12 +423,11 @@ export function AgentAccessPanel() {
         </Badge>
       </div>
       <p className="mb-4 text-xs leading-relaxed text-zinc-500">
-        Paste your tokens <span className="text-zinc-300">here</span> — not in the
-        chat. Then mint a scoped, expiring{" "}
-        <span className="text-emerald-400">agent link</span> and paste{" "}
-        <span className="text-emerald-400">that</span> into the chat. The AI works
-        through this dashboard&apos;s server-side vault; your real tokens never
-        appear in any conversation, and a link can be revoked any time without
+        The approval flow above is the recommended way to let an AI in. This is
+        the underlying vault: paste tokens{" "}
+        <span className="text-zinc-300">here</span>, not in chat; mint scoped,
+        expiring <span className="text-emerald-400">agent links</span> for
+        automation you fully trust — every call is logged and revocable without
         touching the tokens.
       </p>
 
@@ -971,6 +981,7 @@ export function AgentAccessPanel() {
           </a>
         </TooltipContent>
       </Tooltip>
+      </div>
     </div>
   );
 }
