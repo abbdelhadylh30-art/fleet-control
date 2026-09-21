@@ -137,11 +137,14 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (state.authRequired && !state.authenticated) {
     return (
       <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#0a0c10] px-4 text-zinc-100">
-        {/* ambient pulse rings */}
+        {/* ambient pulse rings — L3 (2026-09-21): raised from /10,/15,/20
+            (VLM: "almost to the point of being invisible") to a visible
+            commitment: brighter borders + a soft glow on the outer ring so
+            the depth effect actually reads on OLED-dark backgrounds */}
         <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="h-[560px] w-[560px] rounded-full border border-emerald-500/10" />
-          <div className="absolute h-[380px] w-[380px] rounded-full border border-emerald-500/15" />
-          <div className="absolute h-[220px] w-[220px] rounded-full border border-emerald-500/20" />
+          <div className="h-[560px] w-[560px] rounded-full border border-emerald-500/25 shadow-[0_0_140px_-30px_rgba(16,185,129,0.28)]" />
+          <div className="absolute h-[380px] w-[380px] rounded-full border border-emerald-500/40" />
+          <div className="absolute h-[220px] w-[220px] rounded-full border border-emerald-500/55 bg-emerald-500/[0.025]" />
         </div>
 
         <div

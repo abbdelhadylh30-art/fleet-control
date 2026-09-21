@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Lock, LogOut, Radar, ShieldAlert } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Lock, LogOut, Radar, ShieldAlert, Timer } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -16,10 +17,38 @@ const LINKS = [
   { href: "/activity", label: "Activity", hint: "submissions log" },
 ];
 
+/** L3 (2026-09-21): "11h 58m left" / "expires in 41m" — admins used to get
+ *  no warning before the 12h session silently expired. */
+function useSessionCountdown(expiresAt: string | null): string | null {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!expiresAt) return;
+    const t = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(t);
+  }, [expiresAt]);
+
+  if (!expiresAt) return null;
+  const leftMs = new Date(expiresAt).getTime() - now;
+  if (leftMs <= 0) return null;
+  const mins = Math.round(leftMs / 60_000);
+  if (mins >= 60) {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m >= 10 ? `${h}h ${m}m left` : `${h}h left`;
+  }
+  return mins > 1 ? `expires in ${mins}m` : "expires in <1m";
+}
+
 /** Global top navigation across the dashboard pages. */
 export function AppNav() {
   const pathname = usePathname();
   const auth = useAuth();
+  const countdown = useSessionCountdown(
+    auth.authenticated ? auth.expiresAt : null,
+  );
+  const expiringSoon =
+    countdown !== null && (countdown.startsWith("expires") || countdown.includes("<1m"));
 
   const signOut = async () => {
     await auth.logout();
@@ -82,6 +111,25 @@ export function AppNav() {
               );
             })}
           </div>
+
+          {auth.ready && auth.authenticated && countdown && (
+            <span
+              title={
+                auth.expiresAt
+                  ? `Admin session expires ${new Date(auth.expiresAt).toLocaleString()}`
+                  : undefined
+              }
+              aria-label={`Admin session ${countdown}`}
+              className={`hidden items-center gap-1 rounded-xl border px-2 py-1.5 font-mono text-[10px] font-medium sm:flex ${
+                expiringSoon
+                  ? "animate-pulse border-amber-500/30 bg-amber-500/10 text-amber-400"
+                  : "border-white/5 bg-white/[0.02] text-zinc-500"
+              }`}
+            >
+              <Timer className={expiringSoon ? "h-3 w-3 text-amber-400" : "h-3 w-3 text-zinc-500"} />
+              {countdown}
+            </span>
+          )}
 
           {auth.ready && auth.authenticated && (
             <Button
