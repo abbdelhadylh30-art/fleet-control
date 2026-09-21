@@ -120,8 +120,21 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     }
   }, [refresh]);
 
+  // boot: hold children until the auth state is known. Pages mount their
+  // data fetches on mount, and rendering them pre-auth used to fire
+  // /api/fleet + /api/indexnow before the lock screen took over (the
+  // 3-requests-in-400ms storm from the 2026-09-20 audit) and flashed the
+  // dashboard chrome at anonymous visitors.
+  if (!ready) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0a0c10]">
+        <Loader2 aria-label="Loading dashboard" className="h-5 w-5 animate-spin text-emerald-400" />
+      </div>
+    );
+  }
+
   // locked → full-screen login (nav/footer intentionally hidden)
-  if (ready && state.authRequired && !state.authenticated) {
+  if (state.authRequired && !state.authenticated) {
     return (
       <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#0a0c10] px-4 text-zinc-100">
         {/* ambient pulse rings */}

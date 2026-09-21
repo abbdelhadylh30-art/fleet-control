@@ -105,6 +105,14 @@ export async function hostProjectMap(): Promise<Record<string, string>> {
 
 const BUILDING_STATES = new Set(["BUILDING", "QUEUED", "INITIALIZING"]);
 
+// 2026-09-21 fix: a reattach Vercel accepts but the fleet map keeps reporting
+// stale (propagation delay) used to retry EVERY fresh check — observed live as
+// a 409-retry loop every ~60s for 4+ minutes on leads/dev domains. One
+// reattach attempt per host per 10 minutes (in-memory, per warm instance —
+// same trade-off as the module caches) converges instead of amplifying.
+const REATTACH_COOLDOWN_MS = 10 * 60_000;
+const lastReattachAttempt = new Map<string, number>();
+
 interface LatestDeploy {
   uid?: string;
   readyState?: string;
@@ -166,6 +174,17 @@ export async function runAutoHeal(
       // 1) stale domain assignment → auto-reattach to the expected project
       //    (runs whether the site is up or down — wrong content is a defect)
       if (stale) {
+        const last = lastReattachAttempt.get(site.host) ?? 0;
+        if (Date.now() - last < REATTACH_COOLDOWN_MS) {
+          actions.push({
+            host: site.host,
+            project: expected,
+            status: "skipped",
+            detail: `reattach attempted ${Math.max(1, Math.round((Date.now() - last) / 60000))}m ago — inside the 10m reattach cooldown`,
+          });
+          continue;
+        }
+        lastReattachAttempt.set(site.host, Date.now());
         const moved = await reattachVercelDomain(site.host, expected);
         // alreadyCorrect = the direct probe found the domain on the expected
         // project — the fleet-wide map was flaky, nothing actually moved

@@ -7,7 +7,12 @@ export const dynamic = "force-dynamic";
 // serverless safety: fleet checks + upstream API calls can take a while
 export const maxDuration = 60;
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // 2026-09-21: admin-gated — the submission log (per-host timestamps,
+  // URL counts) is fleet reconnaissance when anonymous.
+  const gate = requireAdmin(req);
+  if (gate) return gate;
+
   const entries = await readLog();
   return NextResponse.json({ entries: entries.slice(0, 100) });
 }

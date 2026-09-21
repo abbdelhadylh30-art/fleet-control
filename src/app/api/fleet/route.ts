@@ -13,6 +13,7 @@ import {
 import { readLog, totalSubmitted } from "@/lib/activity-log";
 import { autoSubmitArmed } from "@/lib/auto-submit";
 import { runAutoHeal } from "@/lib/autopilot";
+import { getAdminAuth, requireAdmin } from "@/lib/security";
 import { recordUptime, readUptime, uptimeStats } from "@/lib/uptime";
 import { buildPrevStates, updateIncidents } from "@/lib/incidents";
 import { readScoreHistory, recordScoreAvg } from "@/lib/score-history";
@@ -209,11 +210,43 @@ async function checkVerification(): Promise<{ gsc: VerifyStatus; bing: VerifySta
   return { gsc, bing };
 }
 
+/**
+ * Response shaping (2026-09-21 audit fix). Anonymous callers keep the 24/7
+ * heartbeat alive (cache-miss checks still run the full pipeline — the
+ * autopilot design is untouched) but only ever see aggregate health: no repo
+ * names, no per-site detail, no GSC verification records, no incident hosts.
+ * Signed-in admins get the full payload. `force=1` (a full fresh check:
+ * 56+ outbound fetches, submissions, autopilot) is admin-only now.
+ */
+function fleetResponse(payload: FleetResponse, privileged: boolean, extra: Record<string, unknown> = {}) {
+  if (privileged) return NextResponse.json({ ...payload, ...extra });
+  return NextResponse.json({
+    ok: true,
+    checkedAt: payload.checkedAt,
+    ...extra,
+    summary: {
+      total: payload.summary.total,
+      live: payload.summary.live,
+      avgScore: payload.summary.avgScore,
+      uptimePct: payload.summary.uptimePct,
+    },
+  });
+}
+
 export async function GET(req: NextRequest) {
   const force = req.nextUrl.searchParams.get("force") === "1";
 
+  // force = the expensive, side-effectful path — signed-in admins only.
+  if (force) {
+    const gate = requireAdmin(req);
+    if (gate) return gate;
+  }
+
+  const auth = getAdminAuth(req);
+  const privileged = !auth.authRequired || auth.authenticated;
+
   if (!force && cache && Date.now() - cache.at < CACHE_TTL_MS) {
-    return NextResponse.json({ ...cache.payload, cached: true });
+    return fleetResponse(cache.payload, privileged, { cached: true });
   }
 
   const [repos] = await Promise.all([fetchRepos()]);
@@ -332,5 +365,5 @@ export async function GET(req: NextRequest) {
   };
 
   cache = { at: Date.now(), payload };
-  return NextResponse.json(payload);
+  return fleetResponse(payload, privileged);
 }

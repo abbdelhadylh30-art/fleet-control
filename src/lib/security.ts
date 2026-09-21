@@ -38,13 +38,28 @@ export function adminPassword(): string | null {
   return pw.length >= 8 ? pw : null;
 }
 
-/** true when the deployment has no admin password → gate is open (local dev). */
+/**
+ * true when the deployment must be gated. A configured password always gates.
+ * A MISSING password now fails CLOSED in production (2026-09-21 audit fix —
+ * previously an unset FLEET_ADMIN_PASSWORD opened the management plane
+ * everywhere); local dev keeps open mode so scripts/QA keep working.
+ */
 export function authRequired(): boolean {
-  return adminPassword() !== null;
+  if (adminPassword() !== null) return true;
+  return process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
 }
 
-/** sha256 of a namespaced password → signing secret (rotates with password). */
+/**
+ * HMAC signing secret for admin sessions. Optional dedicated secret first
+ * (FLEET_SESSION_SECRET ≥ 16 chars — decouples session forgery resistance
+ * from password entropy); otherwise derived from the password as before
+ * (rotates with the password, stays backward compatible).
+ */
 function sessionSecret(): Buffer {
+  const dedicated = (process.env.FLEET_SESSION_SECRET ?? "").trim();
+  if (dedicated.length >= 16) {
+    return createHash("sha256").update(`fleet-session:${dedicated}`).digest();
+  }
   return createHash("sha256")
     .update(`fleet-control-admin:${adminPassword() ?? "open"}`)
     .digest();
@@ -137,6 +152,12 @@ export interface AdminAuthState {
 export function getAdminAuth(request: Request): AdminAuthState {
   const required = authRequired();
   if (!required) return { authRequired: false, authenticated: false, expiresAt: null };
+  if (adminPassword() === null) {
+    // production with no password configured — fail CLOSED. Nothing can
+    // authenticate here: with no password the signing secret would derive
+    // from a public constant, so every token is rejected outright.
+    return { authRequired: true, authenticated: false, expiresAt: null };
+  }
   const token = parseCookies(request.headers.get("cookie"))[ADMIN_COOKIE];
   if (!token) return { authRequired: true, authenticated: false, expiresAt: null };
   const v = verifyAdminToken(token);
@@ -263,9 +284,19 @@ export function rateLimit(key: string, limit: number, windowMs: number): { ok: b
 // ─── request metadata ─────────────────────────────────────────────────────────
 
 export function clientIp(request: Request): string {
+  // 2026-09-21 audit fix: this used to trust the FIRST x-forwarded-for entry,
+  // which is fully attacker-controlled (spoof a fresh IP per request → bypass
+  // every IP rate limit — proven live against the login limiter). Correct
+  // order on Vercel: x-real-ip (platform-set, unspoofable) first, then the
+  // LAST xff entry (appended by the nearest trusted proxy).
+  const real = request.headers.get("x-real-ip")?.trim();
+  if (real) return real.slice(0, 45);
   const fwd = request.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0].trim().slice(0, 45);
-  return request.headers.get("x-real-ip")?.slice(0, 45) ?? "unknown";
+  if (fwd) {
+    const parts = fwd.split(",").map((s) => s.trim()).filter(Boolean);
+    if (parts.length > 0) return parts[parts.length - 1].slice(0, 45);
+  }
+  return "unknown";
 }
 
 function clientUa(request: Request): string {

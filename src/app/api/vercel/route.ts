@@ -11,8 +11,12 @@ import { logSecurityEvent, requireAdmin, requireChallenge } from "@/lib/security
 
 export const dynamic = "force-dynamic";
 
-// GET → connect status (no token material, safe to poll)
-export async function GET() {
+// GET → connect status — admin-gated since 2026-09-21 (project names +
+//        domain assignments are infrastructure recon when anonymous)
+export async function GET(req: Request) {
+  const gate = requireAdmin(req);
+  if (gate) return gate;
+
   const status = await vercelStatus();
   return NextResponse.json(status, { headers: { "cache-control": "no-store" } });
 }

@@ -18,8 +18,12 @@ import { requireAdmin } from "@/lib/security";
 
 export const dynamic = "force-dynamic";
 
-// GET → local submission history + connect-once status (no secrets, safe to poll)
-export async function GET() {
+// GET → submission history + connect-once status — admin-gated since
+//        2026-09-21 (search-console telemetry + auth status are recon when anonymous)
+export async function GET(req: Request) {
+  const gate = requireAdmin(req);
+  if (gate) return gate;
+
   const [entries, auth] = await Promise.all([readGscLog(), gscAuthStatus()]);
   return NextResponse.json({ entries, auth }, { headers: { "cache-control": "no-store" } });
 }

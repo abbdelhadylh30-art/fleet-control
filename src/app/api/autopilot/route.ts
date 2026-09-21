@@ -1,5 +1,6 @@
 // ─── /api/autopilot — auto-pilot config + action log ────────────────────────
-// GET  → { config, log } — open (aggregate data, no secrets), mirrors /api/fleet.
+// GET  → { config, log } — admin-gated since 2026-09-21 (the heal log
+//        names hosts, projects and deploy uids — recon when anonymous).
 // POST → { action: "set", autoHeal: boolean } — admin-gated master switch.
 
 import { NextResponse } from "next/server";
@@ -13,7 +14,10 @@ import { requireAdmin } from "@/lib/security";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
+  const gate = requireAdmin(req);
+  if (gate) return gate;
+
   const [config, log] = await Promise.all([readAutoPilotConfig(), readAutoPilotLog()]);
   return NextResponse.json(
     { config, log: log.slice(0, 20) },

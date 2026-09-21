@@ -1,5 +1,6 @@
 // ─── /api/postgres-audit — Postgres-readiness per fleet app ─────────────────
-// GET  → { baseline, status, summary } — open (no secrets; repo structure data).
+// GET  → admin-gated (2026-09-21: was public — leaked repo-structure/infra
+//        recon to anyone; the dashboard consumes it post-login anyway).
 // POST → admin-gated:
 //   { action: "rescan" }                  → live GitHub re-scan, refresh baseline
 //   { action: "step", repo, index, done } → toggle a migration-plan step
@@ -24,7 +25,10 @@ import { requireAdmin } from "@/lib/security";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
+  const gate = requireAdmin(req);
+  if (gate) return gate;
+
   const baseline = await readPgBaseline();
   const status = await readPgStatus();
   const apps = baseline?.apps ?? [];

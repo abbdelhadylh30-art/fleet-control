@@ -34,6 +34,7 @@ export const maxDuration = 60;
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 // mutation allow-lists (prefixes) — read scope has no path restrictions
+// (beyond the secret-leak guardrails below)
 const GITHUB_WRITE_PREFIXES = ["/repos/", "/user/repos", "/gists"];
 const VERCEL_WRITE_PREFIXES = [
   "/v9/projects",
@@ -45,6 +46,31 @@ const VERCEL_WRITE_PREFIXES = [
   "/v4/domains",
   "/v3/domains",
   "/v9/top-domains",
+];
+
+// ─── secret-leak guardrails (2026-09-20 audit, finding C1) ───────────────────
+// A read-scoped link could previously call GET /v10/projects/{p}/env/{id}
+// ?decrypt=true and read DECRYPTED vault secrets (FLEET_ADMIN_PASSWORD,
+// provider tokens, DB creds) straight through the proxy. Never again:
+//   • Vercel env-var surfaces (project + deployment env, any method)
+//   • an explicit decrypt/decryptable flag, for either provider
+const SENSITIVE_READ_DENY: Array<{ re: RegExp; why: string }> = [
+  { re: /^\/v(1|9|10)\/projects\/[^/?]+\/env([\/?]|$)/, why: "project env-var surface" },
+  { re: /^\/v1\/deployments\/[^/?]+\/env([\/?]|$)/, why: "deployment env-var surface" },
+  { re: /[?&](decrypt|decryptable)=true\b/i, why: "explicit decrypt flag" },
+];
+
+// ─── catastrophic-mutation guardrails (2026-09-20 audit, finding C6) ────────
+// Prefix allow-lists alone let through: DELETE /repos/{owner}/{repo} (repo
+// deletion!), PATCH /repos/{o}/{r} (rename), DELETE /v9/projects/{id}
+// (project deletion), DELETE /v4/domains/{name} (domain removal). These exact
+// shapes are denied even WITH write scope — an agent never needs them.
+const CATASTROPHIC_MUTATION_DENY: Array<{ provider: "github" | "vercel"; re: RegExp; why: string }> = [
+  { provider: "github", re: /^\/repos\/[^/]+\/[^/?]+\/?$/, why: "repo delete/rename (exact project root)" },
+  { provider: "github", re: /^\/repos\/[^/]+\/[^/]+\/transfer\/?$/, why: "repo transfer" },
+  { provider: "vercel", re: /^\/v(9|10)\/projects\/[^/?]+\/?$/, why: "project delete/update (exact project root)" },
+  { provider: "vercel", re: /^\/v(3|4|9|10)\/(top-)?domains\/[^/?]+\/?$/, why: "domain delete (exact domain root)" },
+  { provider: "vercel", re: /^\/v(1|9|10)\/projects\/[^/?]+\/env([\/?]|$)/, why: "env-var mutation" },
 ];
 
 function bad(error: string, status: number) {
@@ -180,6 +206,21 @@ export async function POST(request: Request) {
     return bad("path contains characters outside the URL-safe set.", 400);
   }
 
+  // secret-leak guardrails apply to EVERY method (read AND write) — env-var
+  // surfaces and decrypt flags must never round-trip through the proxy.
+  const leak = SENSITIVE_READ_DENY.find((d) => d.re.test(path));
+  if (leak) {
+    await logSecurityEvent({
+      kind: "proxy-secret-leak-blocked",
+      detail: `blocked ${method} ${provider} ${path.slice(0, 80)} (${leak.why})`,
+      request,
+    });
+    return bad(
+      `blocked: ${leak.why} is not reachable through the agent proxy — secrets stay in the vault.`,
+      403,
+    );
+  }
+
   // scope enforcement
   const readScope: AgentScope = provider === "github" ? "github:read" : "vercel:read";
   const writeScope: AgentScope = provider === "github" ? "github:write" : "vercel:write";
@@ -207,6 +248,23 @@ export async function POST(request: Request) {
         request,
       });
       return bad("mutating token endpoints is blocked.", 403);
+    }
+    // catastrophic shapes (exact project/domain/repo roots) are denied even
+    // when the prefix allow-list matched — see CATASTROPHIC_MUTATION_DENY.
+    const bare = path.split("?")[0];
+    const catastrophic = CATASTROPHIC_MUTATION_DENY.find(
+      (d) => d.provider === provider && d.re.test(bare),
+    );
+    if (catastrophic) {
+      await logSecurityEvent({
+        kind: "proxy-catastrophic-block",
+        detail: `blocked ${method} ${provider} ${path.slice(0, 80)} (${catastrophic.why})`,
+        request,
+      });
+      return bad(
+        `blocked: ${catastrophic.why} — this operation is intentionally out of reach for agent links.`,
+        403,
+      );
     }
   }
 

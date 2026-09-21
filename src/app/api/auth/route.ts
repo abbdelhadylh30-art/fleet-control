@@ -14,7 +14,9 @@ import { NextResponse } from "next/server";
 import {
   adminCookieString,
   adminPassword,
+  authRequired,
   clearAdminCookieString,
+  clientIp,
   getAdminAuth,
   issueChallenge,
   logSecurityEvent,
@@ -53,7 +55,24 @@ export async function POST(request: Request) {
   if (action === "login") {
     const password = adminPassword();
     if (!password) {
-      // open mode: nothing to log into — tell the client the gate is open
+      // No password configured. In production the gate now fails CLOSED
+      // (2026-09-21 audit fix) — report that clearly instead of "open mode".
+      if (authRequired()) {
+        await logSecurityEvent({
+          kind: "login-denied",
+          detail: "no admin password configured — production fails closed",
+          request,
+        });
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "No admin password is configured on this deployment — set FLEET_ADMIN_PASSWORD to enable sign-in.",
+          },
+          { status: 403, headers: { "cache-control": "no-store" } },
+        );
+      }
+      // local dev: nothing to log into — tell the client the gate is open
       return NextResponse.json(
         {
           ok: true,
@@ -64,7 +83,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const rl = rateLimit(`login:${clientIpOf(request)}`, LOGIN_MAX_ATTEMPTS, LOGIN_WINDOW_MS);
+    // shared clientIp() — platform-set x-real-ip first, last-xff fallback.
+    // The previous local copy trusted the first xff entry (spoofable) and was
+    // the actual login rate-limit bypass from the 2026-09-20 audit.
+    const rl = rateLimit(`login:${clientIp(request)}`, LOGIN_MAX_ATTEMPTS, LOGIN_WINDOW_MS);
     if (!rl.ok) {
       await logSecurityEvent({
         kind: "login-rate-limited",
@@ -145,8 +167,4 @@ export async function POST(request: Request) {
     { ok: false, error: 'Unknown action — expected "login", "logout" or "challenge".' },
     { status: 400, headers: { "cache-control": "no-store" } },
   );
-}
-
-function clientIpOf(request: Request): string {
-  return request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
 }
