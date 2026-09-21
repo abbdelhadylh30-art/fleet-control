@@ -7,8 +7,14 @@ import type { ScorePoint } from "@/lib/score-history";
 import type { AutoPilotAction } from "@/lib/autopilot";
 export type { SiteUptime, ScorePoint };
 
-export const INDEXNOW_KEY =
-  process.env.INDEXNOW_KEY || "11e700733a1106ad3bbf2bfc6709c49b";
+// IndexNow key — env first (H5 hygiene). The compiled fallback is the
+// LEGACY value that predates the env var; it is public-by-design anyway
+// (IndexNow keys are served at <host>/<key>.txt on every fleet site for
+// verification), but new deployments should set INDEXNOW_KEY and rely on
+// env only. indexnowKeyFromEnv lets the dashboard surface which one is live.
+const INDEXNOW_FALLBACK_KEY = "11e700733a1106ad3bbf2bfc6709c49b";
+export const INDEXNOW_KEY = process.env.INDEXNOW_KEY || INDEXNOW_FALLBACK_KEY;
+export const indexnowKeyFromEnv = Boolean(process.env.INDEXNOW_KEY);
 
 export const GITHUB_OWNER = "abbdelhadylh30-art";
 export const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
@@ -227,6 +233,12 @@ export interface FleetResponse {
   incidents: IncidentView; // open + recently resolved downtime incidents
   trend: ScorePoint[]; // fleet avg score trend — hourly rollups, up to 7d (H3)
   autoPilot: { enabled: boolean; actions: AutoPilotAction[] }; // self-heal moves fired on this check
+  stateLayer?: {
+    // durable state health (L4) — admin payload only
+    mode: "postgres" | "file";
+    version: number | null; // CAS version of the watched state key
+    updatedAt: string | null; // last durable write
+  };
 }
 
 // Scoring weights (sum = 100): robots 5 · sitemap 10 · key 5 · title 15 ·

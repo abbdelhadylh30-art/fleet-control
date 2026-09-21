@@ -182,9 +182,10 @@ export async function promoteSessionToEnv(
 ): Promise<{ ok: boolean; updated?: boolean; redeployUid?: string; error?: string }> {
   if (!key.startsWith("flk_")) return { ok: false, error: "not an agent key" };
 
-  const { readSessions } = await import("./agent-vault");
+  const { readSessions, sessionMatchesKey } = await import("./agent-vault");
   const sessions = await readSessions();
-  const minted = sessions.find((s) => s.key === key && !s.revoked);
+  // H5: the vault stores only key hashes — match by hash, never plaintext
+  const minted = sessions.find((s) => !s.revoked && sessionMatchesKey(s, key));
   if (!minted) {
     return { ok: false, error: "key is not an active minted link on this instance" };
   }

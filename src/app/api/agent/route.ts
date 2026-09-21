@@ -54,7 +54,9 @@ export async function GET(request: Request) {
     scopes: ALL_SCOPES,
     sessions: sessions.map((s) => ({
       id: s.id,
-      keyHint: keyHint(s.key),
+      // H5: hints come from the stored masked form — the vault no longer
+      // holds (or exposes) plaintext keys after creation.
+      keyHint: s.keyHint ?? (s.key ? keyHint(s.key) : "flk_…"),
       label: s.label,
       scopes: s.scopes,
       createdAt: s.createdAt,
@@ -173,7 +175,7 @@ export async function POST(request: Request) {
           );
         }
         const ttlHours = Number(body.ttlHours ?? 168); // default 7 days
-        const { session, url } = await createSession({
+        const { session, url, key } = await createSession({
           label: String(body.label ?? "agent session"),
           scopes,
           ttlHours: Number.isFinite(ttlHours) ? ttlHours : 168,
@@ -189,7 +191,7 @@ export async function POST(request: Request) {
         return NextResponse.json({
           ok: true,
           id: session.id,
-          key: session.key, // full key — shown once in the UI
+          key, // full key — shown once in the UI (H5: hash-only at rest)
           url,
           expiresAt: session.expiresAt,
           scopes: session.scopes,

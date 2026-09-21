@@ -398,9 +398,70 @@ export async function logSecurityEvent(e: {
     // state layer hiccup — console is still the durable channel (log drain)
     console.error("[fleet-security] failed to persist security event", event.kind);
   }
+  // M7: outbound alert for high-signal kinds (no-op without FLEET_ALERT_WEBHOOK)
+  if (ALERTING_KINDS.has(event.kind)) {
+    void alertWebhook(
+      `⚠️ security event: ${event.kind} — ${event.detail} (ip ${event.ip})`,
+      event.kind,
+    );
+  }
 }
 
 export async function readSecurityEvents(): Promise<SecurityEvent[]> {
   const list = await readState<SecurityEvent[]>("security-events");
   return Array.isArray(list) ? list : [];
 }
+
+// ─── outbound security alerting (M7, 2026-09-21) ─────────────────────────────
+//
+// FLEET_ALERT_WEBHOOK (optional): a Slack/Discord-style incoming-webhook URL.
+// When set, high-signal security events and confirmed incidents are POSTed
+// there (fire-and-forget, 4s timeout, never blocks the request path). When
+// unset this is a no-op — zero behavior change for existing deployments.
+//
+// Per-kind dedupe (10 min, per warm instance) keeps a brute-force burst from
+// producing one webhook call per attempt.
+
+const ALERT_DEDUPE_MS = 10 * 60_000;
+const lastAlertAt = new Map<string, number>();
+
+export async function alertWebhook(text: string, kind = "general"): Promise<void> {
+  const url = process.env.FLEET_ALERT_WEBHOOK;
+  if (!url) return;
+  const now = Date.now();
+  const last = lastAlertAt.get(kind) ?? 0;
+  if (now - last < ALERT_DEDUPE_MS) return; // already alerted recently
+  lastAlertAt.set(kind, now);
+  try {
+    await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        text,
+        source: "fleet-control",
+        at: new Date().toISOString(),
+      }),
+      signal: AbortSignal.timeout(4000),
+      cache: "no-store",
+    });
+  } catch {
+    // alerting must never break the operation it reports on
+  }
+}
+
+/** Event kinds that warrant an immediate outbound alert. */
+const ALERTING_KINDS = new Set([
+  "proxy-auth-failed",
+  "proxy-rate-limited",
+  "proxy-token-block",
+  "proxy-secret-leak-blocked",
+  "proxy-catastrophic-block",
+  "proxy-path-rejected",
+  "login-failed",
+  "login-denied",
+  "login-rate-limited",
+  "admin-gate-denied",
+  "exchange-auth-failed",
+  "exchange-rate-limited",
+  "pair-rejected",
+]);

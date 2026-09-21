@@ -48,7 +48,15 @@ export interface GithubAuthStore {
 
 export interface AgentSession {
   id: string;
-  key: string; // capability — shown once at creation, hint-masked afterwards
+  /** H5 (2026-09-21): only sha256(key) is stored — never the key itself.
+   * keyHint is a non-sensitive masked form ("flk_…abcd") kept for the
+   * dashboard list; the full key is returned EXACTLY ONCE at creation. */
+  keyHash: string; // sha256 hex (64 chars)
+  keyHint: string; // masked display form
+  /** Legacy rows (pre-H5) still carry the plaintext key here. On the first
+   * successful use they are migrated to keyHash + keyHint and this field is
+   * dropped. Read-only — new sessions never set it. */
+  key?: string;
   label: string;
   scopes: AgentScope[];
   createdAt: string;
@@ -192,6 +200,29 @@ function newKey(): string {
   return `flk_${randomBytes(24).toString("hex")}`;
 }
 
+/** sha256 hex of a capability key — the ONLY form persisted (H5). */
+function keyHashOf(key: string): string {
+  return createHash("sha256").update(key).digest("hex");
+}
+
+/** True when the stored session record authenticates the presented key
+ * (hash match, or legacy plaintext match — timing-safe in both paths).
+ * Exported for selfops' promote flow (it matches a presented key against
+ * the store without the store ever holding plaintext). */
+export function sessionMatchesKey(s: AgentSession, key: string): boolean {
+  const presented = Buffer.from(keyHashOf(key), "hex");
+  if (s.keyHash) {
+    const stored = Buffer.from(s.keyHash, "hex");
+    return stored.length === presented.length && timingSafeEqual(stored, presented);
+  }
+  if (s.key) {
+    // legacy plaintext record
+    const legacy = createHash("sha256").update(s.key).digest();
+    return legacy.length === presented.length && timingSafeEqual(legacy, presented);
+  }
+  return false;
+}
+
 export async function readSessions(): Promise<AgentSession[]> {
   // Postgres (durable) with file fallback — minted links survive cold starts now
   const store = await readState<{ sessions: AgentSession[] }>("agent-sessions");
@@ -214,6 +245,7 @@ async function mutateSessions(
 
 export interface CreatedSession {
   session: AgentSession;
+  key: string; // full capability — returned EXACTLY ONCE, never stored in the clear
   url: string; // the link the user pastes into chat
 }
 
@@ -223,9 +255,11 @@ export async function createSession(input: {
   ttlHours: number;
 }): Promise<CreatedSession> {
   const ttl = Math.min(Math.max(Math.round(input.ttlHours), 1), 24 * 30);
+  const key = newKey();
   const session: AgentSession = {
     id: newId(),
-    key: newKey(),
+    keyHash: keyHashOf(key),
+    keyHint: hintOf(key),
     label: input.label.trim().slice(0, 60) || "agent session",
     scopes: input.scopes.filter((s) => ALL_SCOPES.includes(s)),
     createdAt: new Date().toISOString(),
@@ -236,8 +270,9 @@ export async function createSession(input: {
   };
   await mutateSessions((sessions) => [...sessions, session]);
   return {
-    session,
-    url: `/api/agent/proxy?session=${session.key}`,
+    session: { ...session },
+    key,
+    url: `/api/agent/proxy?session=${key}`,
   };
 }
 
@@ -316,7 +351,8 @@ function envSession(key: string): AgentSession | null {
       );
   return {
     id: "env_agent",
-    key,
+    keyHash: keyHashOf(key),
+    keyHint: hintOf(key),
     label: "env agent link",
     scopes,
     createdAt: new Date(0).toISOString(),
@@ -346,7 +382,8 @@ export async function resolveSession(
     return {
       session: {
         id: `derived_${p.jti}`,
-        key,
+        keyHash: keyHashOf(key),
+        keyHint: `fls_…${key.slice(-4)}`,
         label: `derived session · ${parent.label}`,
         scopes,
         createdAt: new Date().toISOString(),
@@ -361,11 +398,12 @@ export async function resolveSession(
   // timing-safe scan: never short-circuit on key bytes (defense in depth —
   // a 48-hex-char key is unguessable anyway, but comparisons shouldn't leak)
   let session: AgentSession | undefined;
+  let legacyMatch: AgentSession | undefined;
   for (const s of sessions) {
-    const a = createHash("sha256").update(s.key).digest();
-    const b = createHash("sha256").update(key).digest();
-    if (timingSafeEqual(a, b)) {
+    if (sessionMatchesKey(s, key)) {
       session = s;
+      // pre-H5 rows still store the plaintext key — flag for migration
+      if (s.key && !s.keyHash) legacyMatch = s;
       break;
     }
   }
@@ -374,11 +412,31 @@ export async function resolveSession(
     if (new Date(session.expiresAt).getTime() < Date.now()) {
       return { error: "this agent link has expired — generate a new one in the dashboard" };
     }
+    // H5 migration: rewrite the legacy plaintext record as hash-only
+    if (legacyMatch) {
+      void migrateLegacySession(legacyMatch.id, legacyMatch.key as string);
+    }
     return { session };
   }
   const env = envSession(key);
   if (env) return { session: env };
   return { error: "unknown session — generate a new agent link in the dashboard" };
+}
+
+/** Rewrite a pre-H5 plaintext session record as keyHash + keyHint (best-effort,
+ * non-fatal — the next successful use retries). */
+async function migrateLegacySession(id: string, plaintextKey: string): Promise<void> {
+  try {
+    await mutateSessions((sessions) =>
+      sessions.map((s) =>
+        s.id === id && s.key && !s.keyHash
+          ? { ...s, keyHash: keyHashOf(plaintextKey), keyHint: hintOf(plaintextKey), key: undefined }
+          : s,
+      ),
+    );
+  } catch {
+    /* best-effort */
+  }
 }
 
 export async function touchSession(id: string): Promise<void> {
@@ -426,14 +484,21 @@ function b64url(input: string | Buffer): string {
 }
 
 /** Token signing secret — dedicated env if set, else the agent keys themselves
- * (always present on the deployed instance), else the admin gate secret. */
+ * (always present on the deployed instance), else the admin gate secret.
+ * H5 (2026-09-21): the old "open" literal fallback is GONE — with no secret
+ * configured (local dev without env) a random per-process secret is used
+ * instead: derived sessions won't survive restarts there, but they can never
+ * be forged by an attacker who knows no secret is configured. */
+let fallbackDerivedSecret: Buffer | null = null;
+
 function derivedSecret(): Buffer {
   const basis =
     process.env.FLEET_AGENT_SESSION_SECRET ||
     process.env.FLEET_AGENT_KEYS ||
-    process.env.FLEET_ADMIN_PASSWORD ||
-    "open";
-  return createHash("sha256").update(`fleet-derived:${basis}`).digest();
+    process.env.FLEET_ADMIN_PASSWORD;
+  if (basis) return createHash("sha256").update(`fleet-derived:${basis}`).digest();
+  if (!fallbackDerivedSecret) fallbackDerivedSecret = randomBytes(32);
+  return fallbackDerivedSecret;
 }
 
 /** Parents are referenced by sha256(key) prefix — never by plaintext. */
@@ -446,20 +511,47 @@ function hintOf(key: string): string {
 }
 
 interface ParentCandidate {
-  key: string;
+  /** H5: parents are referenced by their key HASH — plaintext is no longer
+   * available for stored sessions (only env entries hash a live key here). */
+  keyHash: string; // full sha256 hex
+  keyHint: string; // masked form for display
   scopes: AgentScope[];
   label: string;
 }
 
+/** Hash of a stored session record (handles both H5 rows and legacy
+ * plaintext rows without ever returning the key). */
+function storedKeyHash(s: AgentSession): string | null {
+  if (s.keyHash) return s.keyHash;
+  if (s.key) return keyHashOf(s.key);
+  return null;
+}
+
 async function listParentCandidates(): Promise<ParentCandidate[]> {
   const sessions = await readSessions();
-  const out: ParentCandidate[] = sessions
-    .filter((s) => !s.revoked && new Date(s.expiresAt).getTime() > Date.now())
-    .map((s) => ({ key: s.key, scopes: s.scopes, label: s.label }));
+  const out: ParentCandidate[] = [];
+  for (const s of sessions) {
+    if (s.revoked || new Date(s.expiresAt).getTime() <= Date.now()) continue;
+    const kh = storedKeyHash(s);
+    if (!kh) continue;
+    out.push({
+      keyHash: kh,
+      keyHint: s.keyHint ?? hintOf(s.key ?? ""),
+      scopes: s.scopes,
+      label: s.label,
+    });
+  }
   for (const entry of splitKeyEntries(process.env.FLEET_AGENT_KEYS ?? "")) {
     const parsed = parseKeyEntry(entry);
     const es = envSession(parsed.key);
-    if (es) out.push({ key: es.key, scopes: es.scopes, label: es.label });
+    if (es) {
+      out.push({
+        keyHash: es.keyHash,
+        keyHint: es.keyHint,
+        scopes: es.scopes,
+        label: es.label,
+      });
+    }
   }
   return out;
 }
@@ -467,17 +559,18 @@ async function listParentCandidates(): Promise<ParentCandidate[]> {
 async function findParentByHash(ph: string): Promise<ParentCandidate | null> {
   const wanted = Buffer.from(ph, "hex");
   for (const c of await listParentCandidates()) {
-    const h = Buffer.from(parentHash(c.key), "hex");
-    if (h.length === wanted.length && timingSafeEqual(h, wanted)) return c;
+    // parentHash(key) === sha256(key)[0:32] → compare against keyHash prefix
+    const prefix = Buffer.from(c.keyHash.slice(0, 32), "hex");
+    if (prefix.length === wanted.length && timingSafeEqual(prefix, wanted)) return c;
   }
   return null;
 }
 
 async function findParentByKey(parentKey: string): Promise<ParentCandidate | null> {
-  const wanted = createHash("sha256").update(parentKey).digest();
+  const wanted = Buffer.from(keyHashOf(parentKey), "hex");
   for (const c of await listParentCandidates()) {
-    const h = createHash("sha256").update(c.key).digest();
-    if (timingSafeEqual(h, wanted)) return c;
+    const h = Buffer.from(c.keyHash, "hex");
+    if (h.length === wanted.length && timingSafeEqual(h, wanted)) return c;
   }
   return null;
 }
@@ -515,11 +608,24 @@ export async function mintDerivedSession(
       : parent.scopes
   ).filter((s, i, a) => a.indexOf(s) === i);
   if (scopes.length === 0) return { error: "no requested scope is granted by the parent link" };
+  // parentHash(parentKey) — the caller PRESENTED the key, so we can hash it
+  // directly even though the vault only stores hashes.
+  return mintDerivedForHash(parentHash(parentKey), scopes, hintOf(parentKey));
+}
+
+/** Mint a derived session from an already-computed parent hash (pair-code
+ * flow) — no plaintext key needed anywhere in this path. */
+async function mintDerivedForHash(
+  ph: string,
+  scopes: AgentScope[],
+  parentHint: string,
+): Promise<DerivedToken | { error: string }> {
+  if (scopes.length === 0) return { error: "no usable scopes" };
   const exp = Date.now() + DERIVED_TTL_MS;
   const payload = b64url(
     JSON.stringify({
       v: 1,
-      ph: parentHash(parentKey),
+      ph,
       sc: scopes,
       exp,
       jti: randomBytes(8).toString("hex"),
@@ -529,7 +635,7 @@ export async function mintDerivedSession(
     token: `fls_${payload}.${hmacSign(payload)}`,
     expiresAt: new Date(exp).toISOString(),
     scopes,
-    parentHint: hintOf(parent.key),
+    parentHint,
   };
 }
 
@@ -577,13 +683,14 @@ export async function mintPairCode(parentKey?: string): Promise<PairCode | { err
     if (!parent) return { error: "no live agent link or env key to pair against" };
   }
   const exp = Date.now() + PAIR_TTL_MS;
+  const ph = parent.keyHash.slice(0, 32); // sha256(key)[0:32] === parentHash(key)
   const payload = b64url(
-    JSON.stringify({ v: 1, ph: parentHash(parent.key), exp, jti: randomBytes(6).toString("hex") }),
+    JSON.stringify({ v: 1, ph, exp, jti: randomBytes(6).toString("hex") }),
   );
   return {
     code: `pair_${payload}.${hmacSign(payload)}`,
     expiresAt: new Date(exp).toISOString(),
-    parentHint: hintOf(parent.key),
+    parentHint: parent.keyHint,
   };
 }
 
@@ -624,7 +731,15 @@ export async function mintDerivedFromPairHash(
 ): Promise<DerivedToken | { error: string }> {
   const parent = await findParentByHash(ph);
   if (!parent) return { error: "the paired link is gone or expired" };
-  return mintDerivedSession(parent.key, requestedScopes);
+  const scopes = (
+    requestedScopes?.length
+      ? requestedScopes.filter(
+          (s): s is AgentScope =>
+            (ALL_SCOPES as string[]).includes(s) && parent.scopes.includes(s as AgentScope),
+        )
+      : parent.scopes
+  ).filter((s, i, a) => a.indexOf(s) === i);
+  return mintDerivedForHash(ph, scopes, parent.keyHint);
 }
 
 // ─── activity audit log ──────────────────────────────────────────────────────

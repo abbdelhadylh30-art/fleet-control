@@ -17,6 +17,7 @@ import { getAdminAuth, requireAdmin } from "@/lib/security";
 import { recordUptime, readUptime, readUptimeRollups, uptimeStats } from "@/lib/uptime";
 import { buildPrevStates, updateIncidents } from "@/lib/incidents";
 import { recordScoreAvg, readScoreRollups } from "@/lib/score-history";
+import { readStateMeta } from "@/lib/pg-state";
 import type { VerifyStatus } from "@/lib/fleet";
 
 export const dynamic = "force-dynamic";
@@ -141,8 +142,13 @@ async function fetchRepos(): Promise<Record<string, RepoInfo>> {
   }
   if (!GITHUB_TOKEN) return {};
   try {
+    // M4 (2026-09-21): /user/repos with the vault token lists PRIVATE repos
+    // too — /users/{owner}/repos only ever returned public ones, so
+    // repoInfo was silently absent for private repos and isPrivate was
+    // always false. Extra repos beyond the fleet are harmless (keyed by
+    // name; only FLEET names are looked up).
     const res = await fetch(
-      `https://api.github.com/users/${GITHUB_OWNER}/repos?per_page=100`,
+      "https://api.github.com/user/repos?per_page=100&sort=pushed",
       {
         signal: AbortSignal.timeout(10000),
         headers: {
@@ -331,6 +337,11 @@ export async function GET(req: NextRequest) {
 
   const { gsc, bing } = await checkVerification();
 
+  // L4 state-layer health: version + freshness of the most-written state key
+  // (uptime — the heartbeat writes it on every fresh check). Admin payload
+  // only; the anonymous aggregate below never copies it.
+  const stateMeta = await readStateMeta("uptime");
+
   // AUTO-PILOT: the fleet repairs itself — stale domain assignments get
   // re-attached (even while up — wrong content is a defect), down sites get a
   // guarded production redeploy (3h cooldown, never while a deploy is already
@@ -387,6 +398,11 @@ export async function GET(req: NextRequest) {
     incidents: incidentView,
     trend,
     autoPilot,
+    stateLayer: {
+      mode: stateMeta.mode,
+      version: stateMeta.version,
+      updatedAt: stateMeta.updatedAt,
+    },
   };
 
   cache = { at: Date.now(), payload };

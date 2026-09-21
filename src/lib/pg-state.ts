@@ -73,6 +73,39 @@ export async function readState<T>(key: string): Promise<T | null> {
   return readFromFile<T>(key);
 }
 
+export interface StateLayerMeta {
+  mode: "postgres" | "file";
+  version: number | null; // CAS version of the row (null when unknown/file)
+  updatedAt: string | null; // ISO timestamp of the last durable write
+}
+
+/**
+ * Health metadata for one state key (L4 state-layer health surface).
+ * Reads only the row's version/updatedAt columns — never the value — so it
+ * is cheap and safe to expose in the admin payload.
+ */
+export async function readStateMeta(key: string): Promise<StateLayerMeta> {
+  if (pgEnabled) {
+    try {
+      const row = await db.pgState.findUnique({
+        where: { key },
+        select: { version: true, updatedAt: true },
+      });
+      if (row) {
+        return {
+          mode: "postgres",
+          version: row.version,
+          updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : String(row.updatedAt),
+        };
+      }
+      return { mode: "postgres", version: null, updatedAt: null };
+    } catch {
+      return { mode: "postgres", version: null, updatedAt: null };
+    }
+  }
+  return { mode: "file", version: null, updatedAt: null };
+}
+
 /** Write a state blob: upsert into Postgres (durable) and best-effort mirror
  * to the file (keeps local dev + any pre-PG reader in sync). Returns true
  * when the row was durably persisted in Postgres.
