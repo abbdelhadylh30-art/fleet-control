@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { AuthGate } from "@/components/auth-gate";
 import { Toaster } from "@/components/ui/toaster";
 
 const geistSans = Geist({
@@ -55,7 +56,14 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        {children}
+        {/* AuthGate lives in the LAYOUT (2026-09-21 fix): pages used to wrap
+            themselves in AppShell → AuthGate, which only gated their JSX — the
+            page component still MOUNTED pre-auth, firing its fetch effects
+            (the “fixed” pre-auth fetch storm) and crashing on render when the
+            anonymous /api/fleet payload (no summary.attention) landed. With
+            the gate at the layout level, the page tree never mounts until the
+            admin is authenticated — no effects, no fetches, no render. */}
+        <AuthGate>{children}</AuthGate>
         <Toaster />
       </body>
     </html>

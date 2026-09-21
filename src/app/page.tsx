@@ -1102,7 +1102,14 @@ export default function Home() {
     try {
       const res = await fetch(`/api/fleet${force ? "?force=1" : ""}`);
       if (!res.ok) throw new Error(`API ${res.status}`);
-      setData((await res.json()) as FleetData);
+      const json = (await res.json()) as FleetData;
+      // shape guard (2026-09-21): an anonymous/unauthenticated response is the
+      // reduced aggregate (no sites/summary.attention) — never let it into
+      // state, the dashboard render assumes the full payload.
+      if (!json || !Array.isArray(json.sites) || !json.summary || !Array.isArray(json.summary.attention)) {
+        throw new Error("Unexpected fleet payload shape");
+      }
+      setData(json);
       if (fleetErrorRef.current) {
         fleetErrorRef.current = false;
         toast.success("Fleet status back online");
@@ -1228,7 +1235,9 @@ export default function Home() {
 
   const sites = data?.sites ?? [];
   const blockers = sites.filter((s) => s.blocker);
-  const attention = data ? data.summary.attention.length : 0;
+  // optional chaining: defense in depth — the payload is shape-guarded at the
+  // fetch boundary, this must never see a reduced/anonymous payload again
+  const attention = data?.summary?.attention?.length ?? 0;
   const [query, setQuery] = useState("");
   const [group, setGroup] = useState<string>("all");
   const [sort, setSort] = useState<string>("score");
