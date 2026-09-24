@@ -2,6 +2,14 @@
 
 export const DOMAIN_PROPERTY = "abdelhadygabriel.me";
 
+/**
+ * The Google account that OWNS the Search Console Domain property.
+ * User-confirmed 2026-09-21: the property lives under this account —
+ * NOT under any other Gmail. Every connect / sign-in flow must name it.
+ */
+export const GSC_OWNER_EMAIL = "abbdelhadylh30@gmail.com";
+export const GSC_OWNER_EMAIL_WRONG = "abbdelhadylh31@gmail.com";
+
 export interface GscSitemapInfo {
   path: string; // sitemap URL
   lastSubmitted: string | null; // ISO
@@ -25,6 +33,25 @@ export interface GscCallResult {
   error?: string; // human-readable hint for the user
   sitemaps?: GscSitemapInfo[]; // for "status" action
   results?: GscOutcome[]; // for "submit" action
+}
+
+/** One Search Analytics row (a page or a query) — 28-day window. */
+export interface GscPerfRow {
+  key: string; // page URL or search query
+  clicks: number;
+  impressions: number;
+  ctr: number; // 0..1 (Google's ratio)
+  position: number; // avg position
+}
+
+export interface GscPerfResult {
+  ok: boolean;
+  status: number;
+  error?: string;
+  range: { start: string; end: string };
+  totals?: { clicks: number; impressions: number; ctr: number; position: number };
+  pages?: GscPerfRow[];
+  queries?: GscPerfRow[];
 }
 
 /** Client-side mirror of the server-side fleet-sitemap guard. */
