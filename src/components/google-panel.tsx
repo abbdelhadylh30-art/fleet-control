@@ -38,6 +38,8 @@ import {
   type GscCallResult,
   type GscOutcome,
   type GscSitemapInfo,
+  GSC_OWNER_EMAIL,
+  GSC_OWNER_EMAIL_WRONG,
 } from "@/lib/gsc-types";
 import type { FleetSiteStatus, VerifyStatus } from "@/lib/fleet";
 
@@ -56,6 +58,7 @@ function GoogleMark({ className }: { className?: string }) {
 }
 
 const WEBMASTERS_SCOPE = "https://www.googleapis.com/auth/webmasters";
+const USERINFO_EMAIL_SCOPE = "https://www.googleapis.com/auth/userinfo.email";
 const PLAYGROUND_REDIRECT = "https://developers.google.com/oauthplayground";
 
 function buildConsentUrl(clientId: string): string {
@@ -63,7 +66,9 @@ function buildConsentUrl(clientId: string): string {
     client_id: clientId.trim(),
     redirect_uri: PLAYGROUND_REDIRECT,
     response_type: "code",
-    scope: WEBMASTERS_SCOPE,
+    // webmasters does the work; userinfo.email lets the dashboard SHOW which
+    // Google account is connected (catches the wrong-Gmail mistake).
+    scope: `${WEBMASTERS_SCOPE} ${USERINFO_EMAIL_SCOPE}`,
     access_type: "offline",
     prompt: "consent",
   });
@@ -107,6 +112,8 @@ interface GscAuthState {
   savedAt: string | null;
   lastRefreshAt: string | null;
   lastError: string | null;
+  connectedEmail: string | null;
+  propertyAccessible: boolean | null;
 }
 
 const AUTH_IDLE: GscAuthState = {
@@ -115,6 +122,8 @@ const AUTH_IDLE: GscAuthState = {
   savedAt: null,
   lastRefreshAt: null,
   lastError: null,
+  connectedEmail: null,
+  propertyAccessible: null,
 };
 
 export function GoogleIndexingPanel({
@@ -144,6 +153,7 @@ export function GoogleIndexingPanel({
   const [submitting, setSubmitting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [probing, setProbing] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
   const [statusData, setStatusData] = useState<GscSitemapInfo[] | null>(null);
   const [submitResults, setSubmitResults] = useState<GscOutcome[] | null>(null);
@@ -274,6 +284,11 @@ export function GoogleIndexingPanel({
       const json = (await res.json()) as {
         ok?: boolean;
         error?: string;
+        access?: {
+          connectedEmail: string | null;
+          propertyAccessible: boolean | null;
+          ownerEmail: string;
+        };
         probe?: { ok: boolean; sitemaps?: GscSitemapInfo[] };
       };
       if (!res.ok || !json.ok) {
@@ -281,10 +296,17 @@ export function GoogleIndexingPanel({
         return;
       }
       const { toast } = await import("sonner");
-      toast.success(
-        "Google connected — sitemaps now submit with one click, forever. No more token pasting.",
-        { duration: 7000 },
-      );
+      if (json.access?.propertyAccessible === false) {
+        toast.error(
+          `Saved, but WRONG Google account — it can't see the property. Reconnect choosing ${json.access.ownerEmail}.`,
+          { duration: 9000 },
+        );
+      } else {
+        toast.success(
+          "Google connected — sitemaps now submit with one click, forever. No more token pasting.",
+          { duration: 7000 },
+        );
+      }
       // credentials verified — drop them from the form immediately
       setClientId("");
       setClientSecret("");
@@ -320,6 +342,37 @@ export function GoogleIndexingPanel({
       toast.error("Network error while disconnecting");
     } finally {
       setDisconnecting(false);
+    }
+  };
+
+  // "which Google account is this?" — forces the server-side identity probe
+  const probeAccess = async () => {
+    setProbing(true);
+    try {
+      const res = await fetch("/api/gsc", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "probe-access" }),
+      });
+      if (res.ok) {
+        const json = (await res.json()) as { propertyAccessible?: boolean | null };
+        const { toast } = await import("sonner");
+        if (json.propertyAccessible === false) {
+          toast.error(
+            `This Google account can't see the ${"abdelhadygabriel.me"} property — reconnect with ${GSC_OWNER_EMAIL}`,
+            { duration: 8000 },
+          );
+        } else if (json.propertyAccessible === true) {
+          toast.success("Connection verified — this account can see the Search Console property");
+        } else {
+          toast.info("Google didn't confirm access either way — try submitting a sitemap to be sure");
+        }
+        await loadGscLog();
+      }
+    } catch {
+      /* non-fatal */
+    } finally {
+      setProbing(false);
     }
   };
 
@@ -486,8 +539,14 @@ export function GoogleIndexingPanel({
               </>,
               <>
                 Click the <span className="text-zinc-200">consent link</span> the
-                form generates → choose your Google account → Allow. Google
-                bounces you to OAuth Playground with a code in the URL.
+                form generates → choose{" "}
+                <span className="font-semibold text-emerald-300">{GSC_OWNER_EMAIL}</span>
+                {" "}— the account that OWNS the Search Console property. The
+                property is <span className="text-rose-300">not</span> on{" "}
+                <span className="text-rose-300">{GSC_OWNER_EMAIL_WRONG}</span> or any other
+                Gmail — choosing the wrong one makes every submission fail with
+                “lacks permission”. Then Allow. Google bounces you to OAuth
+                Playground with a code in the URL.
               </>,
               <>
                 In Playground: gear icon ⚙ → check{" "}
@@ -545,9 +604,35 @@ export function GoogleIndexingPanel({
         {/* connected summary */}
         {connected ? (
           <div className="mb-4 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-3.5">
-            <div className="flex items-center gap-2 text-xs font-semibold text-emerald-300">
+            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-emerald-300">
               <Link2 className="h-3.5 w-3.5" />
               Google connection active
+              {auth.connectedEmail ? (
+                <Badge
+                  variant="outline"
+                  className={`gap-1 px-1.5 py-0 text-[10px] ${
+                    auth.connectedEmail === GSC_OWNER_EMAIL
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                      : "border-rose-500/30 bg-rose-500/10 text-rose-300"
+                  }`}
+                >
+                  {auth.connectedEmail === GSC_OWNER_EMAIL ? (
+                    <CheckCircle2 className="h-3 w-3" />
+                  ) : (
+                    <XCircle className="h-3 w-3" />
+                  )}
+                  {auth.connectedEmail}
+                </Badge>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => void probeAccess()}
+                disabled={probing}
+                className="ml-auto inline-flex items-center gap-1 text-[10px] font-normal text-emerald-400/70 transition-colors hover:text-emerald-300 disabled:opacity-50"
+              >
+                {probing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCcw className="h-3 w-3" />}
+                which account?
+              </button>
             </div>
             <p className="mt-1 text-[11px] leading-relaxed text-emerald-400/70">
               Access tokens refresh themselves server-side
@@ -570,6 +655,37 @@ export function GoogleIndexingPanel({
               )}{" "}
               {disconnecting ? "disconnecting…" : "disconnect"}
             </Button>
+          </div>
+        ) : null}
+
+        {/* wrong-account tripwire — the property lives under ONE Gmail */}
+        {connected && auth.propertyAccessible === false ? (
+          <div className="mb-4 rounded-xl border border-rose-500/30 bg-rose-500/[0.08] p-4">
+            <div className="flex items-center gap-2 text-xs font-semibold text-rose-200">
+              <XCircle className="h-4 w-4 shrink-0" />
+              Wrong Google account — this connection can&apos;t see your property
+            </div>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-rose-300/85">
+              The Search Console property{" "}
+              <span className="font-mono text-rose-200">sc-domain:abdelhadygabriel.me</span> is
+              owned by{" "}
+              <span className="font-semibold text-rose-100">{GSC_OWNER_EMAIL}</span>
+              {auth.connectedEmail && auth.connectedEmail !== GSC_OWNER_EMAIL ? (
+                <>
+                  {" "}— but this connection is authorized for{" "}
+                  <span className="font-semibold text-rose-100">{auth.connectedEmail}</span>
+                </>
+              ) : (
+                <> (not {GSC_OWNER_EMAIL_WRONG} or any other Gmail)</>
+              )}
+              . Sitemap submissions will fail until you reconnect:
+            </p>
+            <ol className="mt-2 space-y-1 text-[11px] leading-relaxed text-rose-300/85">
+              <li>1 · Hit <span className="font-semibold text-rose-100">disconnect</span> below.</li>
+              <li>2 · Run the connect steps again — and pick{" "}
+                <span className="font-semibold text-rose-100">{GSC_OWNER_EMAIL}</span> in the
+                Google account chooser.</li>
+            </ol>
           </div>
         ) : null}
 
@@ -636,8 +752,12 @@ export function GoogleIndexingPanel({
             {consentUrl ? (
               <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.05] p-3">
                 <p className="mb-2 text-[11px] leading-relaxed text-emerald-300/90">
-                  Consent link ready — open it, choose the account that owns
-                  Search Console, click <span className="font-semibold">Allow</span>:
+                  Consent link ready — open it and choose{" "}
+                  <span className="font-semibold text-emerald-200">{GSC_OWNER_EMAIL}</span>{" "}
+                  <span className="text-emerald-400/60">
+                    (the account that owns Search Console — NOT {GSC_OWNER_EMAIL_WRONG})
+                  </span>
+                  , then click <span className="font-semibold">Allow</span>:
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Button
