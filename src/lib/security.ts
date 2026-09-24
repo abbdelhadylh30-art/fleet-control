@@ -25,6 +25,7 @@ import { createHash, createHmac, timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 
 import { mutateState, readState } from "@/lib/pg-state";
+import { sendAlert } from "@/lib/alerts";
 
 export const ADMIN_COOKIE = "fleet_admin";
 export const ADMIN_TTL_MS = 12 * 3600_000; // sessions expire — hours, not forever
@@ -398,11 +399,12 @@ export async function logSecurityEvent(e: {
     // state layer hiccup — console is still the durable channel (log drain)
     console.error("[fleet-security] failed to persist security event", event.kind);
   }
-  // M7: outbound alert for high-signal kinds (no-op without FLEET_ALERT_WEBHOOK)
+  // M7: outbound alert for high-signal kinds (Telegram/webhook channels since
+  // v21 — the legacy FLEET_ALERT_WEBHOOK env rides along inside sendAlert)
   if (ALERTING_KINDS.has(event.kind)) {
-    void alertWebhook(
-      `⚠️ security event: ${event.kind} — ${event.detail} (ip ${event.ip})`,
-      event.kind,
+    void sendAlert(
+      "security",
+      `⚠️ <b>Security event</b> — ${event.kind}\n${event.detail}\nip ${event.ip}`,
     );
   }
 }
