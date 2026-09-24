@@ -13,6 +13,7 @@
 // (connected / needsReauth) and timestamps.
 
 import { mutateState, readState, writeState, deleteState } from "@/lib/pg-state";
+import { sendAlert } from "@/lib/alerts";
 import {
   DOMAIN_PROPERTY,
   GSC_OWNER_EMAIL,
@@ -241,6 +242,13 @@ export async function refreshAccessProbe(force: boolean): Promise<void> {
         }
       : null,
   );
+  // wrong-account tripwire now pings the alert channels (cooldown-deduped)
+  if (probe.propertyAccessible === false) {
+    void sendAlert(
+      "gsc-wrong-account",
+      `⚠️ <b>Wrong Google account connected</b> — the stored Search Console connection (email: ${probe.email ?? "unknown"}) cannot see the abdelhadygabriel.me property. Re-connect with ${GSC_OWNER_EMAIL}.`,
+    );
+  }
 }
 
 /**
