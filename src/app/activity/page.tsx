@@ -4,6 +4,7 @@ import { Activity } from "lucide-react";
 
 import { ActivityPanel } from "@/components/activity-panel";
 import { AgentUsageCard } from "@/components/agent-usage-card";
+import { AlertsCard } from "@/components/alerts-card";
 import { AppShell } from "@/components/app-shell";
 import { SecurityPanel } from "@/components/security-panel";
 import { SelfOpsPanel } from "@/components/selfops-panel";
@@ -30,6 +31,10 @@ export default function ActivityPage() {
 
         <section aria-label="Self operations status">
           <SelfOpsPanel />
+        </section>
+
+        <section aria-label="Alert channels">
+          <AlertsCard />
         </section>
 
         <section aria-label="Agent link usage">
