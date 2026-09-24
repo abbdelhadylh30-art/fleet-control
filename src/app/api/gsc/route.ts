@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import {
   appendGscLog,
   gscListSitemaps,
+  gscSearchPerformance,
   gscSubmitSitemaps,
   isFleetSitemap,
   readGscLog,
@@ -12,8 +13,10 @@ import {
   disconnectGscAuth,
   getStoredAccessToken,
   gscAuthStatus,
+  refreshAccessProbe,
   saveGscAuth,
 } from "@/lib/gsc-auth";
+import { GSC_OWNER_EMAIL } from "@/lib/gsc-types";
 import { requireAdmin } from "@/lib/security";
 
 export const dynamic = "force-dynamic";
@@ -70,6 +73,10 @@ export async function POST(req: Request) {
     const result = await saveGscAuth({ clientId, clientSecret, refreshToken });
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
 
+    // wrong-account tripwire (2026-09-21): the property lives under a SPECIFIC
+    // Google account — tell the user IMMEDIATELY if this connection can't see it.
+    const access = await gscAuthStatus();
+
     // sanity: confirm the fresh token actually reads the Domain property
     const token = await getStoredAccessToken();
     const probe = token ? await gscListSitemaps(token) : null;
@@ -88,9 +95,27 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ok: true,
       connected: true,
+      access: {
+        connectedEmail: access.connectedEmail,
+        propertyAccessible: access.propertyAccessible,
+        ownerEmail: GSC_OWNER_EMAIL,
+      },
       probe: probe
         ? { ok: probe.ok, status: probe.status, error: probe.error, sitemaps: probe.sitemaps }
         : { ok: false, status: 0, error: "token saved but probe failed" },
+    });
+  }
+
+  // ── force the account-identity probe ("which Google account is this?") ────
+  if (body.action === "probe-access") {
+    await refreshAccessProbe(true);
+    const access = await gscAuthStatus();
+    return NextResponse.json({
+      ok: true,
+      connectedEmail: access.connectedEmail,
+      propertyAccessible: access.propertyAccessible,
+      accessCheckedAt: access.accessCheckedAt,
+      ownerEmail: GSC_OWNER_EMAIL,
     });
   }
 
@@ -171,8 +196,14 @@ export async function POST(req: Request) {
     return NextResponse.json(result);
   }
 
+  // ── performance: last-28-days clicks / impressions from Search Analytics ──
+  if (body.action === "performance") {
+    const result = await gscSearchPerformance(token);
+    return NextResponse.json(result);
+  }
+
   return NextResponse.json(
-    { error: "Unknown action — expected \"save-auth\", \"disconnect\", \"status\" or \"submit\"." },
+    { error: 'Unknown action — expected "save-auth", "disconnect", "probe-access", "status", "submit" or "performance".' },
     { status: 400 },
   );
 }
