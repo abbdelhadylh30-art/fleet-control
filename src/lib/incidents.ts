@@ -1,6 +1,6 @@
 import { mutateState, readState } from "@/lib/pg-state";
 import { readUptime } from "@/lib/uptime";
-import { alertWebhook } from "@/lib/security";
+import { sendAlert } from "@/lib/alerts";
 
 const KEY = "incidents";
 const MAX_KEPT = 50;
@@ -134,12 +134,18 @@ export async function updateIncidents(
     return list.slice(-MAX_KEPT);
   })) ?? [];
 
-  // M7 alerting (env-gated, fire-and-forget, deduped in security.ts)
+  // M7 alerting (channel-configurable since v21, fire-and-forget, cooldown-deduped)
   for (const host of newlyConfirmed) {
-    void alertWebhook(`🔴 ${host} is DOWN — incident confirmed after ${OPEN_THRESHOLD} failed checks`);
+    void sendAlert(
+      "site-down",
+      `🔴 <b>${host} is DOWN</b> — incident confirmed after ${OPEN_THRESHOLD} failed checks.`,
+    );
   }
   for (const r of newlyRecovered) {
-    void alertWebhook(`🟢 ${r.host} recovered (incident closed as ${r.severity ?? "minor"})`);
+    void sendAlert(
+      "site-recovered",
+      `🟢 <b>${r.host} recovered</b> — incident closed as ${r.severity ?? "minor"}.`,
+    );
   }
 
   return {
