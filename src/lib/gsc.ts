@@ -14,6 +14,8 @@ import {
   DOMAIN_PROPERTY,
   type GscCallResult,
   type GscOutcome,
+  type GscPerfResult,
+  type GscPerfRow,
   type GscSitemapInfo,
 } from "@/lib/gsc-types";
 
@@ -21,6 +23,8 @@ export type {
   GscCallResult,
   GscOutcome,
   GscSitemapInfo,
+  GscPerfResult,
+  GscPerfRow,
 } from "@/lib/gsc-types";
 export { DOMAIN_PROPERTY } from "@/lib/gsc-types";
 
@@ -57,15 +61,19 @@ const AUTH_HINTS: Record<number, string> = {
   404: "Property not found — verify the Domain property in Search Console first.",
 };
 
-/** Low-level authed GET/PUT against the Search Console API. */
+/** Low-level authed GET/PUT/POST against the Search Console API. */
 async function gscFetch(
   token: string,
   path: string,
-  init?: { method?: "GET" | "PUT" },
+  init?: { method?: "GET" | "PUT" | "POST"; body?: unknown },
 ): Promise<{ status: number; body: unknown; errorText?: string }> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: init?.method ?? "GET",
-    headers: { Authorization: `Bearer ${token}` },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(init?.body ? { "content-type": "application/json" } : {}),
+    },
+    body: init?.body ? JSON.stringify(init.body) : undefined,
     // GSC API can be slow — give it room
     signal: AbortSignal.timeout(15000),
     cache: "no-store",
@@ -176,6 +184,110 @@ function hostOf(url: string): string {
     return new URL(url).hostname;
   } catch {
     return url;
+  }
+}
+
+// ─── Search performance (Search Analytics API — clicks / impressions) ──────
+
+const PERF_CACHE_TTL = 10 * 60 * 1000; // 10 min — Search Analytics is quota'd
+let perfCache: { at: number; data: GscPerfResult } | null = null;
+
+function isoDay(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+interface AnalyticsRow {
+  keys?: string[];
+  clicks?: number;
+  impressions?: number;
+  ctr?: number;
+  position?: number;
+}
+
+function mapRows(rows: AnalyticsRow[] | undefined, pick: (k: string[]) => string): GscPerfRow[] {
+  return (rows ?? []).map((r) => ({
+    key: pick(r.keys ?? []),
+    clicks: r.clicks ?? 0,
+    impressions: r.impressions ?? 0,
+    ctr: r.ctr ?? 0,
+    position: r.position ?? 0,
+  }));
+}
+
+/**
+ * Pull the last 28 days of Search performance for the Domain property:
+ * aggregate totals + top pages + top search queries. One Search Analytics
+ * query each — cached 10 min to stay far under Google's quota.
+ */
+export async function gscSearchPerformance(token: string): Promise<GscPerfResult> {
+  if (perfCache && Date.now() - perfCache.at < PERF_CACHE_TTL) {
+    return perfCache.data;
+  }
+
+  const end = new Date();
+  const start = new Date(end.getTime() - 27 * 24 * 60 * 60 * 1000);
+  const range = { start: isoDay(start), end: isoDay(end) };
+  const query = (dimensions?: string[], rowLimit = 8) =>
+    gscFetch(token, `/sites/${siteUrl()}/searchAnalytics/query`, {
+      method: "POST",
+      body: {
+        startDate: range.start,
+        endDate: range.end,
+        ...(dimensions ? { dimensions } : {}),
+        rowLimit,
+        dataState: "all", // include the freshest (unfinalized) days
+      },
+    });
+
+  try {
+    const [totalsRes, pagesRes, queriesRes] = await Promise.all([
+      query(undefined, 1),
+      query(["page"], 8),
+      query(["query"], 8),
+    ]);
+
+    if (totalsRes.status === 403 || totalsRes.status === 401) {
+      const result: GscPerfResult = {
+        ok: false,
+        status: totalsRes.status,
+        error: AUTH_HINTS[totalsRes.status] ?? "Google refused the performance request.",
+        range,
+      };
+      return result;
+    }
+    if (totalsRes.status !== 200) {
+      return {
+        ok: false,
+        status: totalsRes.status,
+        error: AUTH_HINTS[totalsRes.status] ?? `Search Analytics returned ${totalsRes.status}.`,
+        range,
+      };
+    }
+
+    const totalsRows = (totalsRes.body as { rows?: AnalyticsRow[] }).rows ?? [];
+    const t = totalsRows[0] ?? {};
+    const result: GscPerfResult = {
+      ok: true,
+      status: 200,
+      range,
+      totals: {
+        clicks: t.clicks ?? 0,
+        impressions: t.impressions ?? 0,
+        ctr: t.ctr ?? 0,
+        position: t.position ?? 0,
+      },
+      pages: mapRows((pagesRes.body as { rows?: AnalyticsRow[] }).rows, (k) => k[0] ?? ""),
+      queries: mapRows((queriesRes.body as { rows?: AnalyticsRow[] }).rows, (k) => k[0] ?? ""),
+    };
+    perfCache = { at: Date.now(), data: result };
+    return result;
+  } catch (e) {
+    return {
+      ok: false,
+      status: 0,
+      error: `Could not reach Google: ${e instanceof Error ? e.message : "network error"}`,
+      range,
+    };
   }
 }
 
