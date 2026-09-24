@@ -12,6 +12,7 @@ import {
 } from "@/lib/fleet";
 import { readLog, totalSubmitted } from "@/lib/activity-log";
 import { autoSubmitArmed } from "@/lib/auto-submit";
+import { runDeployWatch } from "@/lib/deploy-watch";
 import { runAutoHeal } from "@/lib/autopilot";
 import { getAdminAuth, requireAdmin } from "@/lib/security";
 import { recordUptime, readUptime, readUptimeRollups, uptimeStats } from "@/lib/uptime";
@@ -281,6 +282,12 @@ export async function GET(req: NextRequest) {
     .map((s) => s.host);
   const autoResults = await autoSubmitArmed(armedHosts, log);
   const logForCount = [...autoResults, ...log];
+
+  // deploy-triggered half of self-driving indexing (90s self-throttled):
+  // new READY production deployments → IndexNow + GSC sitemap resubmit.
+  // Surfaced on /integrations via /api/resubmit (state + log).
+  await runDeployWatch().catch(() => null);
+
   const scores = liveSites.map((s) => s.health.audit?.seoScore ?? 0);
   const avgScore = scores.length
     ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
