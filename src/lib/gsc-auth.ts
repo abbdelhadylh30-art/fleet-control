@@ -13,8 +13,16 @@
 // (connected / needsReauth) and timestamps.
 
 import { mutateState, readState, writeState, deleteState } from "@/lib/pg-state";
+import {
+  DOMAIN_PROPERTY,
+  GSC_OWNER_EMAIL,
+} from "@/lib/gsc-types";
 
 const KEY = "gsc-auth";
+const PROPERTY_RESOURCE = `sc-domain:${DOMAIN_PROPERTY}`;
+const ACCESS_PROBE_TTL = 60 * 60 * 1000; // re-check account/property at most hourly
+
+export { GSC_OWNER_EMAIL };
 
 export interface GscAuthStore {
   clientId: string;
@@ -25,6 +33,12 @@ export interface GscAuthStore {
   lastAccessTokenExpiry?: number; // epoch ms
   needsReauth?: boolean; // set when Google returns invalid_grant
   lastError?: string;
+  // account-identity probe (2026-09-21): WHICH Google account is connected
+  // and can it actually see the Domain property? Catches the "connected the
+  // wrong Gmail" mistake the moment it happens.
+  connectedEmail?: string; // when Google tells us (userinfo scope)
+  propertyAccessible?: boolean | null; // null = unknown / probe failed
+  accessCheckedAt?: string; // ISO
 }
 
 export interface GscAuthStatus {
@@ -33,6 +47,9 @@ export interface GscAuthStatus {
   savedAt: string | null;
   lastRefreshAt: string | null;
   lastError: string | null;
+  connectedEmail: string | null;
+  propertyAccessible: boolean | null;
+  accessCheckedAt: string | null;
 }
 
 let memCache: { token: string; expiresAt: number } | null = null;
@@ -68,12 +85,20 @@ async function mutateAuthFields(fields: Partial<GscAuthStore>): Promise<void> {
 /** Public-safe status for the dashboard — no secret material. */
 export async function gscAuthStatus(): Promise<GscAuthStatus> {
   const store = await readAuth();
+  if (store) {
+    // best-effort identity probe — fire-and-forget so status stays fast;
+    // the NEXT poll picks up the refreshed fields (throttled to 1/hour).
+    void refreshAccessProbe(false).catch(() => undefined);
+  }
   return {
     connected: !!store,
     needsReauth: !!store?.needsReauth,
     savedAt: store?.savedAt ?? null,
     lastRefreshAt: store?.lastRefreshAt ?? null,
     lastError: store?.lastError ?? null,
+    connectedEmail: store?.connectedEmail ?? null,
+    propertyAccessible: store?.propertyAccessible ?? null,
+    accessCheckedAt: store?.accessCheckedAt ?? null,
   };
 }
 
@@ -145,6 +170,79 @@ export async function getStoredAccessToken(): Promise<string | null> {
   }
 }
 
+// ─── account-identity probe (2026-09-21) ────────────────────────────────────
+
+/** Ask Google WHO this token belongs to and WHAT it can see in Search Console. */
+async function probeAccess(token: string): Promise<{
+  email: string | null;
+  propertyAccessible: boolean | null;
+}> {
+  let email: string | null = null;
+  let propertyAccessible: boolean | null = null;
+
+  // identity — only answers when the consent included userinfo.email;
+  // older connections (webmasters-only) 403 here and we stay silent.
+  try {
+    const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(10_000),
+      cache: "no-store",
+    });
+    if (res.ok) {
+      const j = (await res.json()) as { email?: string };
+      if (j.email) email = j.email;
+    }
+  } catch {
+    /* cosmetic only — fall through */
+  }
+
+  // the AUTHORITATIVE signal: does the sites list contain our Domain property?
+  try {
+    const res = await fetch("https://www.googleapis.com/webmasters/v3/sites", {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(15_000),
+      cache: "no-store",
+    });
+    if (res.ok) {
+      const j = (await res.json()) as { siteUrl?: string[] };
+      propertyAccessible = (j.siteUrl ?? []).includes(PROPERTY_RESOURCE);
+    } else if (res.status === 403) {
+      // token valid but sees NO Search Console properties at all
+      propertyAccessible = false;
+    }
+  } catch {
+    /* leave unknown */
+  }
+
+  return { email, propertyAccessible };
+}
+
+/**
+ * Refresh the stored identity probe. Throttled to 1/hour unless forced
+ * (connect time / explicit re-check). Never throws into the caller.
+ */
+export async function refreshAccessProbe(force: boolean): Promise<void> {
+  const store = await readAuth();
+  if (!store) return;
+  if (!force && store.accessCheckedAt) {
+    const age = Date.now() - new Date(store.accessCheckedAt).getTime();
+    if (age < ACCESS_PROBE_TTL) return;
+  }
+  const token = await getStoredAccessToken();
+  if (!token) return;
+  const probe = await probeAccess(token);
+  await mutateState<GscAuthStore>(KEY, (cur) =>
+    cur
+      ? {
+          ...cur,
+          connectedEmail: probe.email ?? cur.connectedEmail,
+          propertyAccessible: probe.propertyAccessible ?? cur.propertyAccessible ?? null,
+          accessCheckedAt: new Date().toISOString(),
+        }
+      : null,
+  );
+}
+
 /**
  * Validate + persist a new "connect once" credential triple.
  * Proves it works by refreshing immediately — returns { ok, error? }.
@@ -208,5 +306,12 @@ export async function saveGscAuth(input: {
     savedAt: new Date().toISOString(),
     needsReauth: false,
   });
+  // connect time is exactly when the wrong-account mistake happens —
+  // probe synchronously so the UI can warn immediately.
+  try {
+    await refreshAccessProbe(true);
+  } catch {
+    /* non-fatal — status shows unknown until next poll */
+  }
   return { ok: true };
 }
