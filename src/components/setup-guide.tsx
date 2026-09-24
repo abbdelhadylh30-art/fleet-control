@@ -37,6 +37,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { FleetSiteStatus, VerifyStatus } from "@/lib/fleet";
+import { GSC_OWNER_EMAIL, GSC_OWNER_EMAIL_WRONG } from "@/lib/gsc-types";
 
 const DOMAIN_PROPERTY = "abdelhadygabriel.me";
 const GSC_RESOURCE = `sc-domain:${DOMAIN_PROPERTY}`;
@@ -136,6 +137,7 @@ function CopyBtn({ text, label }: { text: string; label: string }) {
 interface GscAuthBrief {
   connected: boolean;
   needsReauth: boolean;
+  propertyAccessible?: boolean | null;
 }
 
 /** Google / Bing indexing runbook (lives on /integrations). */
@@ -183,11 +185,16 @@ export function SetupGuide({
       const res = await fetch("/api/gsc", { cache: "no-store" });
       if (res.ok) {
         const json = (await res.json()) as {
-          auth?: { connected?: boolean; needsReauth?: boolean };
+          auth?: {
+            connected?: boolean;
+            needsReauth?: boolean;
+            propertyAccessible?: boolean | null;
+          };
         };
         setGscAuth({
           connected: !!json.auth?.connected,
           needsReauth: !!json.auth?.needsReauth,
+          propertyAccessible: json.auth?.propertyAccessible ?? null,
         });
       }
     } catch {
@@ -280,7 +287,10 @@ export function SetupGuide({
               {GSC_RESOURCE}
             </code>{" "}
             — covers the apex and <span className="text-zinc-300">all 13 subdomains</span> at once.
-            Verification is already in your DNS
+            Sign in to Google as{" "}
+            <span className="font-semibold text-emerald-300">{GSC_OWNER_EMAIL}</span> — that
+            account owns the property (not {GSC_OWNER_EMAIL_WRONG}). Verification is already in
+            your DNS
             {gsc.record ? (
               <>
                 {" "}
@@ -369,13 +379,21 @@ export function SetupGuide({
               The <span className="text-zinc-300">Google panel below</span> can push every sitemap
               through the Search Console API in one click — and it keeps a submission history with
               per-sitemap counts. Re-run it any time you ship new pages.
+              {gscAuth.propertyAccessible === false ? (
+                <span className="mt-1 block text-rose-300">
+                  ⚠ This connection uses the wrong Google account — the property is owned by{" "}
+                  {GSC_OWNER_EMAIL}. Disconnect and reconnect with that account.
+                </span>
+              ) : null}
             </p>
           ) : (
             <p className="mt-2 pl-[42px] text-xs leading-relaxed text-zinc-500">
               Prefer zero manual repeating? In the{" "}
               <span className="text-zinc-300">Google panel below</span>, connect a Google API token
-              once (OAuth Playground, 3 minutes — the panel walks you through it). After that,
-              sitemap submission, status checks and history are one click, forever.
+              once (OAuth Playground, 3 minutes — the panel walks you through it) — and choose{" "}
+              <span className="font-semibold text-emerald-300">{GSC_OWNER_EMAIL}</span> when Google
+              asks which account. After that, sitemap submission, status checks and history are one
+              click, forever.
             </p>
           )}
         </section>
