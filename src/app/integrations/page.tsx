@@ -5,6 +5,7 @@ import { Loader2, Plug } from "lucide-react";
 
 import { AgentAccessPanel } from "@/components/agent-panel";
 import { AppShell } from "@/components/app-shell";
+import { DeployWatchCard } from "@/components/deploy-watch-card";
 import { GscPerformancePanel } from "@/components/gsc-performance";
 import { GoogleIndexingPanel } from "@/components/google-panel";
 import { SetupGuide } from "@/components/setup-guide";
@@ -62,6 +63,7 @@ export default function IntegrationsPage() {
             <>
               <SetupGuide sites={sites} gsc={gsc} bing={bing} />
               <GscPerformancePanel />
+              <DeployWatchCard />
               <AgentAccessPanel />
               <GoogleIndexingPanel sites={sites} gsc={gsc} />
               <VercelOpsPanel />
