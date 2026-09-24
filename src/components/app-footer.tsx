@@ -16,7 +16,7 @@ export function AppFooter({
       <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-4 text-[11px] text-zinc-600 sm:px-6">
         <span className="flex flex-wrap items-center gap-2">
           <span>
-            Fleet Control <span className="text-zinc-700">v20</span> · built with{" "}
+            Fleet Control <span className="text-zinc-700">v21</span> · built with{" "}
             <span className="text-zinc-400">Z.ai Code</span>
           </span>
           {extra}
