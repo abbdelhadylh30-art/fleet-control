@@ -18,7 +18,8 @@ export function lastOkSubmitAt(log: LogEntry[], host: string): number | null {
   return null;
 }
 
-async function collectUrls(host: string): Promise<string[]> {
+/** Sitemap URLs for a host (homepage always included, ≤50) — shared with deploy-watch. */
+export async function collectUrls(host: string): Promise<string[]> {
   const base = `https://${host}`;
   const urls = new Set<string>([`${base}/`]);
   try {
