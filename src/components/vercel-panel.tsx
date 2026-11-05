@@ -278,7 +278,7 @@ export function VercelOpsPanel() {
               placeholder="Vercel API token — stored server-side once, never in this browser"
               autoComplete="off"
               aria-label="Vercel API token"
-              className="border-white/10 bg-white/[0.03] pr-9 font-mono text-xs text-zinc-200 placeholder:text-zinc-500 focus-visible:ring-emerald-500/40"
+              className="border-white/10 bg-white/[0.03] pr-9 font-mono text-xs text-zinc-200 placeholder:text-zinc-400 focus-visible:ring-emerald-500/40"
             />
             <button
               type="button"
