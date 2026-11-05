@@ -744,7 +744,7 @@ export function GoogleIndexingPanel({
                 onChange={(e) => setClientId(e.target.value)}
                 placeholder="1234567890-xyz.apps.googleusercontent.com"
                 autoComplete="off"
-                className="border-white/10 bg-white/[0.03] font-mono text-xs text-zinc-200 placeholder:text-zinc-500 focus-visible:ring-emerald-500/40"
+                className="border-white/10 bg-white/[0.03] font-mono text-xs text-zinc-200 placeholder:text-zinc-400 focus-visible:ring-emerald-500/40"
               />
             </div>
 
@@ -798,7 +798,7 @@ export function GoogleIndexingPanel({
                   onChange={(e) => setClientSecret(e.target.value)}
                   placeholder="GOCSPX-…"
                   autoComplete="off"
-                  className="border-white/10 bg-white/[0.03] pr-9 font-mono text-xs text-zinc-200 placeholder:text-zinc-500 focus-visible:ring-emerald-500/40"
+                  className="border-white/10 bg-white/[0.03] pr-9 font-mono text-xs text-zinc-200 placeholder:text-zinc-400 focus-visible:ring-emerald-500/40"
                 />
                 <button
                   type="button"
@@ -822,7 +822,7 @@ export function GoogleIndexingPanel({
                 onChange={(e) => setRefreshToken(e.target.value)}
                 placeholder="1//0g…"
                 autoComplete="off"
-                className="border-white/10 bg-white/[0.03] font-mono text-xs text-zinc-200 placeholder:text-zinc-500 focus-visible:ring-emerald-500/40"
+                className="border-white/10 bg-white/[0.03] font-mono text-xs text-zinc-200 placeholder:text-zinc-400 focus-visible:ring-emerald-500/40"
               />
             </div>
 
@@ -853,7 +853,7 @@ export function GoogleIndexingPanel({
         {!connected && mode === "token" ? (
           <div className="mb-4">
             <label htmlFor="gsc-token" className="mb-1.5 block text-[11px] font-medium text-zinc-400">
-              Google access token <span className="text-zinc-500">(expires in ~1 hour)</span>
+              Google access token <span className="text-zinc-400">(expires in ~1 hour)</span>
             </label>
             <div className="flex gap-2">
               <div className="relative flex-1">
@@ -864,7 +864,7 @@ export function GoogleIndexingPanel({
                   onChange={(e) => saveToken(e.target.value)}
                   placeholder="ya29.…"
                   autoComplete="off"
-                  className="border-white/10 bg-white/[0.03] pr-9 font-mono text-xs text-zinc-200 placeholder:text-zinc-500 focus-visible:ring-emerald-500/40"
+                  className="border-white/10 bg-white/[0.03] pr-9 font-mono text-xs text-zinc-200 placeholder:text-zinc-400 focus-visible:ring-emerald-500/40"
                 />
                 <button
                   type="button"
