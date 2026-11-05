@@ -769,7 +769,7 @@ export default function Home() {
           </div>
           {!loading && filtered.length === 0 ? (
             <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-white/10 py-12 text-center">
-              <Search className="h-6 w-6 text-zinc-500" />
+              <Search className="h-6 w-6 text-zinc-400" />
               <p className="text-sm text-zinc-400">
                 No sites match “{query}”
               </p>
