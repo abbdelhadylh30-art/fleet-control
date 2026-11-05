@@ -387,7 +387,7 @@ export function AuditSheet({
                       />
                     ) : (
                       <div className="flex aspect-[1.91/1] w-full flex-col items-center justify-center gap-1.5 bg-white/[0.02] text-center">
-                        <ImageIcon className="h-5 w-5 text-zinc-500" />
+                        <ImageIcon className="h-5 w-5 text-zinc-400" />
                         <p className="px-6 text-[11px] leading-relaxed text-zinc-400">
                           No og:image — chat apps show a blank card when this
                           link is shared
