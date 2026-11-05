@@ -85,7 +85,7 @@ export function ActivityPanel() {
             </div>
           ) : log.length === 0 ? (
             <div className="flex flex-col items-center gap-2 p-10 text-center">
-              <Send className="h-6 w-6 text-zinc-500" />
+              <Send className="h-6 w-6 text-zinc-400" />
               <p className="text-sm text-zinc-400">
                 No submissions yet — hit{" "}
                 <span className="text-emerald-400">Submit all</span> on the
