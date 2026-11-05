@@ -1,6 +1,18 @@
 # Worklog — Fleet SEO Indexing Kickoff
 
 ---
+Task ID: 9.1 (v22.1)
+Agent: Z.ai (chat session, 2026-11-05)
+Task: Follow-up audit of the v22 contrast sweep found 15 straggler usages of text-zinc-500 (3.7–4.0:1 on the dashboard's dark surfaces — fails WCAG AA for normal-size text): input placeholders, parenthetical hints, footer shortcut labels, empty-state icons. User had explicitly asked for contrast to be fixed, so the sweep was completed.
+
+Work Log:
+- Mechanical replace text-zinc-500 → text-zinc-400 (and placeholder:text-zinc-500 → placeholder:text-zinc-400) across 8 TSX files (vercel-panel, google-panel ×5, activity-panel, agent-usage-card, app-footer ×4, audit-sheet, gsc-performance, page). git diff verified: ONLY color classes changed.
+- WCAG re-audit: zinc-400 now 6.9–7.6:1 on #0a0c10 / zinc-900/60 / zinc-900 (all ≥ AA, most ≥ AAA); zero text-zinc-500/600/700 remain on dark surfaces; text-muted-foreground resolves to oklch(0.708) ≈ 9:1 in the dark theme — compliant.
+- Shipped through the Fleet proxy itself (dogfood): GitHub contents PUT + Vercel /v13/deployments trigger under a fls_ approval session minted via the new fac_ flow — end-to-end proof of the v22 access model.
+- Version stays v22 (no feature change; contrast completion patch).
+
+Result: deployed production; verified zinc-400 stragglers live and gate renders clean.
+---
 Task ID: 9 (v22)
 Agent: Z.ai (chat session, 2026-11-05)
 Task: User asked for three fixes: (1) keep ONLY the temp-password + approval access path, (2) add/disconnect vault tokens at will, (3) fix font/background contrast.
