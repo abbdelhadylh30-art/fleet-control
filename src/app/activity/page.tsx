@@ -22,7 +22,7 @@ export default function ActivityPage() {
             <h1 className="text-lg font-semibold tracking-tight text-zinc-100">
               Operations &amp; activity
             </h1>
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-zinc-400">
               Deployment health, agent-link usage and every IndexNow submission — newest
               first.
             </p>

@@ -410,7 +410,7 @@ export function GoogleIndexingPanel({
             <BadgeCheck className="h-3 w-3" /> No
           </Badge>
         </div>
-        <p className="mb-4 text-xs leading-relaxed text-zinc-500">
+        <p className="mb-4 text-xs leading-relaxed text-zinc-400">
           Google doesn&apos;t support IndexNow (that pipeline feeds Bing/Yandex
           only) — but you still don&apos;t do it per-URL. Here is the whole
           picture:
@@ -423,7 +423,7 @@ export function GoogleIndexingPanel({
               <span className="font-semibold text-zinc-200">
                 Verification — already done once.
               </span>{" "}
-              <span className="text-zinc-500">
+              <span className="text-zinc-400">
                 One DNS TXT record verified the whole{" "}
                 <span className="font-mono text-zinc-400">
                   sc-domain:abdelhadygabriel.me
@@ -444,7 +444,7 @@ export function GoogleIndexingPanel({
               <span className="font-semibold text-zinc-200">
                 Bing &amp; Yandex — zero clicks, ever.
               </span>{" "}
-              <span className="text-zinc-500">
+              <span className="text-zinc-400">
                 The dashboard&apos;s{" "}
                 <span className="font-mono text-emerald-400">Submit all</span>{" "}
                 button pushes every URL through IndexNow automatically.
@@ -457,7 +457,7 @@ export function GoogleIndexingPanel({
               <span className="font-semibold text-zinc-200">
                 Google sitemaps — three ways, pick one.
               </span>{" "}
-              <span className="text-zinc-500">
+              <span className="text-zinc-400">
                 (a) <span className="text-emerald-400">Connect once</span> (below)
                 → submit all {sitemapUrls.length} sitemaps with one click, then
                 never think about it again (best), (b) paste the sitemap list
@@ -479,7 +479,7 @@ export function GoogleIndexingPanel({
               <span className="font-semibold text-zinc-200">
                 After that — nothing.
               </span>{" "}
-              <span className="text-zinc-500">
+              <span className="text-zinc-400">
                 Google re-crawls sitemaps on its own schedule. &quot;Request
                 indexing&quot; is only for single urgent pages, never needed for
                 a fleet.
@@ -497,7 +497,7 @@ export function GoogleIndexingPanel({
           <KeyRound className="h-3.5 w-3.5 text-emerald-400" />
           How does “connect once” work? (~4 minutes, free, one time)
           <ChevronDown
-            className={`ml-auto h-3.5 w-3.5 text-zinc-500 transition-transform duration-200 ${howtoOpen ? "rotate-180" : ""}`}
+            className={`ml-auto h-3.5 w-3.5 text-zinc-400 transition-transform duration-200 ${howtoOpen ? "rotate-180" : ""}`}
           />
         </button>
         {howtoOpen ? (
@@ -646,7 +646,7 @@ export function GoogleIndexingPanel({
               variant="ghost"
               disabled={disconnecting}
               onClick={() => void disconnect()}
-              className="mt-2 h-7 gap-1 px-2 text-[11px] text-zinc-500 transition-colors hover:bg-white/5 hover:text-rose-300"
+              className="mt-2 h-7 gap-1 px-2 text-[11px] text-zinc-400 transition-colors hover:bg-white/5 hover:text-rose-300"
             >
               {disconnecting ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -722,7 +722,7 @@ export function GoogleIndexingPanel({
                 className={`flex-1 rounded-md px-2 py-1.5 text-[11px] font-medium transition-colors ${
                   mode === m.id
                     ? "bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/25"
-                    : "text-zinc-500 hover:text-zinc-300"
+                    : "text-zinc-400 hover:text-zinc-300"
                 }`}
               >
                 {m.label}
@@ -735,7 +735,7 @@ export function GoogleIndexingPanel({
         {!connected && mode === "connect" ? (
           <div className="mb-4 space-y-3">
             <div>
-              <label htmlFor="gsc-client-id" className="mb-1.5 block text-[11px] font-medium text-zinc-500">
+              <label htmlFor="gsc-client-id" className="mb-1.5 block text-[11px] font-medium text-zinc-400">
                 1 · OAuth Client ID
               </label>
               <Input
@@ -744,7 +744,7 @@ export function GoogleIndexingPanel({
                 onChange={(e) => setClientId(e.target.value)}
                 placeholder="1234567890-xyz.apps.googleusercontent.com"
                 autoComplete="off"
-                className="border-white/10 bg-white/[0.03] font-mono text-xs text-zinc-200 placeholder:text-zinc-700 focus-visible:ring-emerald-500/40"
+                className="border-white/10 bg-white/[0.03] font-mono text-xs text-zinc-200 placeholder:text-zinc-500 focus-visible:ring-emerald-500/40"
               />
             </div>
 
@@ -780,14 +780,14 @@ export function GoogleIndexingPanel({
                 </div>
               </div>
             ) : (
-              <p className="text-[10px] leading-relaxed text-zinc-600">
+              <p className="text-[10px] leading-relaxed text-zinc-400">
                 The consent link appears here automatically once a valid client
                 ID is entered.
               </p>
             )}
 
             <div>
-              <label htmlFor="gsc-client-secret" className="mb-1.5 block text-[11px] font-medium text-zinc-500">
+              <label htmlFor="gsc-client-secret" className="mb-1.5 block text-[11px] font-medium text-zinc-400">
                 2 · OAuth Client secret
               </label>
               <div className="relative">
@@ -798,13 +798,13 @@ export function GoogleIndexingPanel({
                   onChange={(e) => setClientSecret(e.target.value)}
                   placeholder="GOCSPX-…"
                   autoComplete="off"
-                  className="border-white/10 bg-white/[0.03] pr-9 font-mono text-xs text-zinc-200 placeholder:text-zinc-700 focus-visible:ring-emerald-500/40"
+                  className="border-white/10 bg-white/[0.03] pr-9 font-mono text-xs text-zinc-200 placeholder:text-zinc-500 focus-visible:ring-emerald-500/40"
                 />
                 <button
                   type="button"
                   onClick={() => setShowSecret((v) => !v)}
                   aria-label={showSecret ? "Hide client secret" : "Show client secret"}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-600 transition-colors hover:text-zinc-300"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 transition-colors hover:text-zinc-300"
                 >
                   {showSecret ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                 </button>
@@ -812,7 +812,7 @@ export function GoogleIndexingPanel({
             </div>
 
             <div>
-              <label htmlFor="gsc-refresh-token" className="mb-1.5 block text-[11px] font-medium text-zinc-500">
+              <label htmlFor="gsc-refresh-token" className="mb-1.5 block text-[11px] font-medium text-zinc-400">
                 3 · Refresh token (from Playground exchange — starts with 1//)
               </label>
               <Input
@@ -822,7 +822,7 @@ export function GoogleIndexingPanel({
                 onChange={(e) => setRefreshToken(e.target.value)}
                 placeholder="1//0g…"
                 autoComplete="off"
-                className="border-white/10 bg-white/[0.03] font-mono text-xs text-zinc-200 placeholder:text-zinc-700 focus-visible:ring-emerald-500/40"
+                className="border-white/10 bg-white/[0.03] font-mono text-xs text-zinc-200 placeholder:text-zinc-500 focus-visible:ring-emerald-500/40"
               />
             </div>
 
@@ -841,7 +841,7 @@ export function GoogleIndexingPanel({
                 <span>{connectError}</span>
               </div>
             ) : (
-              <p className="text-center text-[10px] leading-relaxed text-zinc-600">
+              <p className="text-center text-[10px] leading-relaxed text-zinc-400">
                 Values are sent straight to the server and never stored in this
                 browser. Full walkthrough in “How does connect once work?” on the left.
               </p>
@@ -852,8 +852,8 @@ export function GoogleIndexingPanel({
         {/* ── legacy 1-hour token form ──────────────────────────────────── */}
         {!connected && mode === "token" ? (
           <div className="mb-4">
-            <label htmlFor="gsc-token" className="mb-1.5 block text-[11px] font-medium text-zinc-500">
-              Google access token <span className="text-zinc-700">(expires in ~1 hour)</span>
+            <label htmlFor="gsc-token" className="mb-1.5 block text-[11px] font-medium text-zinc-400">
+              Google access token <span className="text-zinc-500">(expires in ~1 hour)</span>
             </label>
             <div className="flex gap-2">
               <div className="relative flex-1">
@@ -864,13 +864,13 @@ export function GoogleIndexingPanel({
                   onChange={(e) => saveToken(e.target.value)}
                   placeholder="ya29.…"
                   autoComplete="off"
-                  className="border-white/10 bg-white/[0.03] pr-9 font-mono text-xs text-zinc-200 placeholder:text-zinc-700 focus-visible:ring-emerald-500/40"
+                  className="border-white/10 bg-white/[0.03] pr-9 font-mono text-xs text-zinc-200 placeholder:text-zinc-500 focus-visible:ring-emerald-500/40"
                 />
                 <button
                   type="button"
                   onClick={() => setShowToken((v) => !v)}
                   aria-label={showToken ? "Hide token" : "Show token"}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-600 transition-colors hover:text-zinc-300"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 transition-colors hover:text-zinc-300"
                 >
                   {showToken ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                 </button>
@@ -880,13 +880,13 @@ export function GoogleIndexingPanel({
                   size="sm"
                   variant="ghost"
                   onClick={() => saveToken("")}
-                  className="h-9 shrink-0 px-2 text-[11px] text-zinc-500 hover:bg-white/5 hover:text-zinc-300"
+                  className="h-9 shrink-0 px-2 text-[11px] text-zinc-400 hover:bg-white/5 hover:text-zinc-300"
                 >
                   clear
                 </Button>
               ) : null}
             </div>
-            <p className="mt-1.5 text-[10px] leading-relaxed text-zinc-600">
+            <p className="mt-1.5 text-[10px] leading-relaxed text-zinc-400">
               Prefer not to expire? Switch to{" "}
               <button
                 onClick={() => setMode("connect")}
@@ -949,10 +949,10 @@ export function GoogleIndexingPanel({
         {statusData ? (
           <div className="mb-4 rounded-xl border border-white/5 bg-black/20 p-3">
             <div className="mb-2 flex items-center justify-between">
-              <h4 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+              <h4 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
                 Registered in Google ({statusData.length})
               </h4>
-              <span className="text-[10px] text-zinc-600">
+              <span className="text-[10px] text-zinc-400">
                 sc-domain:abdelhadygabriel.me
               </span>
             </div>
@@ -1001,7 +1001,7 @@ export function GoogleIndexingPanel({
                         className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs"
                       >
                         <span className="h-3 w-3 shrink-0 rounded-full border border-dashed border-amber-500/40" />
-                        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-zinc-500">
+                        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-zinc-400">
                           {u.replace("https://", "")}
                         </span>
                       </div>
@@ -1020,7 +1020,7 @@ export function GoogleIndexingPanel({
         {/* submit results */}
         {submitResults ? (
           <div className="mb-4 rounded-xl border border-white/5 bg-black/20 p-3">
-            <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+            <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
               Submission results
             </h4>
             <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
@@ -1047,7 +1047,7 @@ export function GoogleIndexingPanel({
                 </div>
               ))}
             </div>
-            <p className="mt-2 px-1 text-[10px] leading-relaxed text-zinc-600">
+            <p className="mt-2 px-1 text-[10px] leading-relaxed text-zinc-400">
               Google will crawl these sitemaps on its own schedule (usually
               within days). You never need to touch this again unless you add
               new sites.
@@ -1058,14 +1058,14 @@ export function GoogleIndexingPanel({
         {/* history */}
         {gscLog.length > 0 ? (
           <div className="border-t border-white/5 pt-3">
-            <h4 className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-600">
+            <h4 className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
               <FileClock className="h-3 w-3" /> Recent GSC activity
             </h4>
             <div className="space-y-0.5">
               {gscLog.slice(0, 5).map((e, i) => (
                 <div
                   key={`${e.ts}-${i}`}
-                  className="flex items-center gap-2 text-[10px] text-zinc-600"
+                  className="flex items-center gap-2 text-[10px] text-zinc-400"
                 >
                   {e.ok ? (
                     <CheckCircle2 className="h-2.5 w-2.5 shrink-0 text-emerald-500" />
@@ -1083,7 +1083,7 @@ export function GoogleIndexingPanel({
         ) : null}
 
         {!canUseApi && mode === "token" ? (
-          <p className="mt-3 text-center text-[10px] leading-relaxed text-zinc-600">
+          <p className="mt-3 text-center text-[10px] leading-relaxed text-zinc-400">
             Prefer not to use any token at all? Use the{" "}
             <span className="text-zinc-400">copy all</span> button on the left
             and paste the list into Search Console → Sitemaps — same result,

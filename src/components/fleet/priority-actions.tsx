@@ -157,7 +157,7 @@ export function PriorityActions({
                   </span>
                   <span className="min-w-0 flex-1 truncate text-sm text-zinc-200">
                     {s.label}
-                    <span className="ml-2 text-xs text-zinc-500">
+                    <span className="ml-2 text-xs text-zinc-400">
                       fix: {gaps.join(" · ") || "score below 70"}
                     </span>
                   </span>

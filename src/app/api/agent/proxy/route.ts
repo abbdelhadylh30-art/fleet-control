@@ -1,16 +1,19 @@
-// ─── /api/agent/proxy — the capability endpoint behind an agent link ────────
-// This is what the AI calls after the user pastes the generated link in chat.
+// ─── /api/agent/proxy — the capability endpoint behind an approval session ──
+// This is what the AI calls after the owner APPROVED its access request.
 //
-// GET  ?session=flk_… [&ping=1]
-//        → ping: who am I, what scopes/providers does this link have? No secrets.
-// POST ?session=flk_…   body: { provider: "github"|"vercel", method?, path, body? }
+// GET  ?session=fls_… [&ping=1]
+//        → ping: who am I, what scopes/providers does this session have? No secrets.
+// POST ?session=fls_…   body: { provider: "github"|"vercel", method?, path, body? }
 //        → scoped, logged proxy call to the stored vault token.
 //
+// v22: sessions are ONLY minted by the approval flow (temp password fac_… →
+// owner approves → poll). Direct agent links (flk_…) are rejected.
+//
 // SECURITY MODEL:
-//   • the session key authorizes — real tokens stay in db/ (chmod 600)
+//   • the derived session authorizes — real tokens stay in the vault
 //   • GET needs <provider>:read, mutations need <provider>:write
 //   • mutation paths are allow-listed (repos/contents/issues, projects, …)
-//   • every call lands in db/agent-activity.json → visible in the dashboard UI
+//   • every call lands in the agent-activity audit log → dashboard UI
 
 import { NextResponse } from "next/server";
 
@@ -78,9 +81,9 @@ function bad(error: string, status: number) {
 }
 
 /**
- * Key extraction — HEADER FIRST. Capability links keep ?session= for humans
- * and AI chat flows, but programmatic callers should send x-agent-key so the
- * key stays out of access logs, CDN logs and browser history entirely.
+ * Key extraction — HEADER FIRST. The approval-flow session token (fls_…)
+ * should be sent as x-agent-key so it stays out of access logs, CDN logs and
+ * browser history entirely; ?session= remains for one-off human flows.
  */
 function getKey(request: Request): string | null {
   const header = request.headers.get("x-agent-key");
@@ -127,7 +130,7 @@ export async function GET(request: Request) {
       t: new Date().toISOString(),
       label: session.label,
       provider: "-",
-      op: "agent link ping (handshake)",
+      op: "approval session ping (handshake)",
       ok: true,
       status: 200,
     });
@@ -142,7 +145,7 @@ export async function GET(request: Request) {
     providers: { github: gh.connected, vercel: vc.connected },
     usage: {
       callCount: session.callCount,
-      howTo: 'POST /api/agent/proxy { provider, method, path, body? } — send the key in the x-agent-key header (recommended, keeps it out of logs) or as ?session=<key>. Better: POST /api/agent/exchange with that key ONCE → work for 1h under the returned fls_ token (or paste a one-time pair_ code from the dashboard and the link never enters chat at all).',
+      howTo: 'POST /api/agent/proxy { provider, method, path, body? } — send this fls_ session token as the x-agent-key header (recommended) or as ?session=<token>. When it expires, ask the owner for a fresh temp password (fac_…) and request access again via /api/agent/access.',
     },
   }, { headers: { "cache-control": "no-store" } });
 }
@@ -227,7 +230,7 @@ export async function POST(request: Request) {
   const isMutation = method !== "GET";
   if (isMutation ? !session.scopes.includes(writeScope) : !session.scopes.includes(readScope)) {
     return bad(
-      `agent link “${session.label}” lacks the ${isMutation ? writeScope : readScope} scope — mint a new link with it in the dashboard.`,
+      `session “${session.label}” lacks the ${isMutation ? writeScope : readScope} scope — ask the owner for a new approval with it.`,
       403,
     );
   }

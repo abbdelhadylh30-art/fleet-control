@@ -32,12 +32,12 @@ export default function Error({
       <h1 className="text-base font-semibold text-zinc-100">
         Something broke on this screen
       </h1>
-      <p className="mt-2 max-w-[40ch] text-balance text-sm leading-relaxed text-zinc-500">
+      <p className="mt-2 max-w-[40ch] text-balance text-sm leading-relaxed text-zinc-400">
         The dashboard hit an unexpected error while rendering. The rest of the
         fleet keeps running — retrying usually clears it.
       </p>
       {error.digest && (
-        <p className="mt-3 font-mono text-[12px] text-zinc-600">
+        <p className="mt-3 font-mono text-[12px] text-zinc-400">
           digest: {error.digest}
         </p>
       )}

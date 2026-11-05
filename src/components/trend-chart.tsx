@@ -49,7 +49,7 @@ export function TrendChart({ log }: { log: LogEntry[] }) {
               style={{ height: `${Math.max((d.urls / max) * 100, 6)}%` }}
             />
           </div>
-          <span className="text-[9px] uppercase text-zinc-600">{d.label}</span>
+          <span className="text-[9px] uppercase text-zinc-400">{d.label}</span>
         </div>
       ))}
     </div>

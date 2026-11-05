@@ -71,8 +71,8 @@ export function AppNav() {
           <span className="text-sm font-semibold tracking-tight text-zinc-100">
             Fleet Control
           </span>
-          <span className="hidden rounded border border-white/10 bg-white/5 px-1 py-px font-mono text-[9px] text-zinc-500 sm:inline">
-            v21
+          <span className="hidden rounded border border-white/10 bg-white/5 px-1 py-px font-mono text-[9px] text-zinc-400 sm:inline">
+            v22
           </span>
           {auth.ready && auth.openMode && (
             <span
@@ -97,7 +97,7 @@ export function AppNav() {
                   className={`relative rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-all duration-300 sm:px-3.5 sm:text-xs ${
                     active
                       ? "scale-[1.03] bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30"
-                      : "text-zinc-500 hover:scale-[1.02] hover:bg-white/5 hover:text-zinc-200"
+                      : "text-zinc-400 hover:scale-[1.02] hover:bg-white/5 hover:text-zinc-200"
                   }`}
                 >
                   {l.label}
@@ -123,10 +123,10 @@ export function AppNav() {
               className={`hidden items-center gap-1 rounded-xl border px-2 py-1.5 font-mono text-[10px] font-medium sm:flex ${
                 expiringSoon
                   ? "animate-pulse border-amber-500/30 bg-amber-500/10 text-amber-400"
-                  : "border-white/5 bg-white/[0.02] text-zinc-500"
+                  : "border-white/5 bg-white/[0.02] text-zinc-400"
               }`}
             >
-              <Timer className={expiringSoon ? "h-3 w-3 text-amber-400" : "h-3 w-3 text-zinc-500"} />
+              <Timer className={expiringSoon ? "h-3 w-3 text-amber-400" : "h-3 w-3 text-zinc-400"} />
               {countdown}
             </span>
           )}

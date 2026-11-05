@@ -11,9 +11,12 @@
 import { promises as fs } from "fs";
 import path from "path";
 
-import { mutateState, readState } from "@/lib/pg-state";
+import { deleteState, mutateState, readState, writeState } from "@/lib/pg-state";
 
 const VERCEL_AUTH_PATH = path.join(process.cwd(), "db", "vercel-auth.json");
+// v22: durable Postgres is the PRIMARY store (the db/ file mirror silently
+// failed on serverless read-only FS — "add token by will" was a no-op there).
+const VERCEL_STATE_KEY = "vault-vercel-auth";
 const API = "https://api.vercel.com";
 const FLEET_DOMAIN_SUFFIX = ".abdelhadygabriel.me";
 const APEX = "abdelhadygabriel.me";
@@ -29,6 +32,8 @@ export interface VercelStatus {
   savedAt: string | null;
   account: { uid: string; username: string; email: string | null } | null;
   disabledAt: string | null;
+  /** "vault" = a token the OWNER added via the dashboard; "env" = fallback. */
+  source: "vault" | "env" | null;
 }
 
 // True-disconnect marker (mirrors agent-vault.ts): a durable pg-state flag
@@ -50,8 +55,12 @@ async function setVercelDisabled(disabled: boolean): Promise<void> {
 }
 
 async function readToken(): Promise<VercelAuthStore | null> {
-  // true disconnect: the durable marker wins over file AND env
+  // true disconnect: the durable marker wins over pg, file AND env
   if (await vercelDisabledAt()) return null;
+  // 1 · durable Postgres vault (owner-added tokens — survives cold starts)
+  const stored = await readState<VercelAuthStore>(VERCEL_STATE_KEY);
+  if (stored?.token) return stored;
+  // 2 · local file (dev)  3 · env fallback
   try {
     const raw = await fs.readFile(VERCEL_AUTH_PATH, "utf8");
     const parsed = JSON.parse(raw) as VercelAuthStore;
@@ -91,24 +100,57 @@ async function writeToken(store: VercelAuthStore | null): Promise<void> {
 
 export async function vercelStatus(): Promise<VercelStatus> {
   const disabledAt = await vercelDisabledAt();
-  const store = disabledAt ? null : await readToken();
-  return {
-    connected: !!store,
-    savedAt: store?.savedAt ?? null,
-    account: store?.account ?? null,
-    disabledAt,
-  };
+  if (disabledAt) {
+    return { connected: false, savedAt: null, account: null, disabledAt, source: null };
+  }
+  const stored = await readState<VercelAuthStore>(VERCEL_STATE_KEY);
+  if (stored?.token) {
+    return {
+      connected: true,
+      savedAt: stored.savedAt || null,
+      account: stored.account,
+      disabledAt: null,
+      source: "vault",
+    };
+  }
+  try {
+    const raw = await fs.readFile(VERCEL_AUTH_PATH, "utf8");
+    const parsed = JSON.parse(raw) as VercelAuthStore;
+    if (parsed?.token) {
+      return {
+        connected: true,
+        savedAt: parsed.savedAt || null,
+        account: parsed.account,
+        disabledAt: null,
+        source: "vault",
+      };
+    }
+  } catch {
+    /* fall through to env */
+  }
+  const t = process.env.FLEET_VERCEL_TOKEN;
+  return t && t.length >= 20
+    ? {
+        connected: true,
+        savedAt: null,
+        account: { uid: "", username: "env-configured", email: null },
+        disabledAt: null,
+        source: "env",
+      }
+    : { connected: false, savedAt: null, account: null, disabledAt: null, source: null };
 }
 
 export async function disconnectVercel(): Promise<void> {
+  // durable vault row + file mirror + env-suppression marker
+  await deleteState(VERCEL_STATE_KEY);
   await writeToken(null);
   await setVercelDisabled(true);
 }
 
-/** Validate a token against /v2/user and persist it. */
+/** Validate a token against /v2/user and vault it (Postgres, durable). */
 export async function connectVercel(
   rawToken: string,
-): Promise<{ ok: boolean; error?: string; username?: string }> {
+): Promise<{ ok: boolean; error?: string; username?: string; persisted?: boolean }> {
   const token = rawToken.trim();
   if (token.length < 20 || /\s/.test(token)) {
     return { ok: false, error: "That doesn't look like a Vercel token — create one at vercel.com/account/tokens." };
@@ -132,8 +174,7 @@ export async function connectVercel(
       user?: { uid?: string; username?: string; email?: string };
     };
     const user = body.user ?? {};
-    await setVercelDisabled(false);
-    await writeToken({
+    const store: VercelAuthStore = {
       token,
       savedAt: new Date().toISOString(),
       account: {
@@ -141,8 +182,12 @@ export async function connectVercel(
         username: String(user.username ?? "unknown"),
         email: user.email ?? null,
       },
-    });
-    return { ok: true, username: String(user.username ?? "unknown") };
+    };
+    await setVercelDisabled(false);
+    // durable vault FIRST (Postgres), file mirror best-effort for local dev
+    const persisted = await writeState(VERCEL_STATE_KEY, store);
+    await writeToken(store);
+    return { ok: true, username: store.account.username, persisted };
   } catch (e) {
     return { ok: false, error: `Could not reach Vercel: ${e instanceof Error ? e.message : "network error"}` };
   }

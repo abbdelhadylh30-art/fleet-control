@@ -1,6 +1,19 @@
 # Worklog — Fleet SEO Indexing Kickoff
 
 ---
+Task ID: 9 (v22)
+Agent: Z.ai (chat session, 2026-11-05)
+Task: User asked for three fixes: (1) keep ONLY the temp-password + approval access path, (2) add/disconnect vault tokens at will, (3) fix font/background contrast.
+
+Work Log:
+- ACCESS MODEL (v22): direct agent links (flk_) and pair codes are RETIRED. resolveSession() now accepts only fls_ derived sessions; /api/agent/exchange and /api/agent/pair return 410 with guidance; POST /api/agent create-session returns 410. The sole access path: dashboard mints fac_ temp password → AI posts /api/agent/access request → owner approves → AI polls → 1-hour fls_ session on /proxy.
+- VAULT DURABILITY FIX: connectGithub/connectVercel used to write db/*.json — a silent no-op on Vercel's read-only FS, so "add token" never persisted on the deployed instance (env fallback kept serving). Both vaults now store to pg-state (Postgres, CAS-durable) FIRST, file mirror kept for local dev. readStatus gained source: "vault" | "env" so the dashboard shows which one is live. Disconnect deletes the pg row + file + keeps the env-suppression marker.
+- UI: agent-panel rewritten — approval card (primary) + token vault (connect/disconnect + env-fallback hint) + audit feed; mint form, pair block, sessions list, promote flow removed.
+- CONTRAST SWEEP: text-zinc-500/600 → text-zinc-400 and text-zinc-700 → text-zinc-500 across all dashboard TSX (~315 occurrences) — every body/meta text now ≥ 4.5:1 on the #0a0c10 / zinc-900 surfaces (WCAG AA).
+- Version markers bumped v21 → v22 (app-nav, app-footer).
+
+Result: deployed via git commit + Vercel API (project not git-linked; see Task 1 topology notes). Post-deploy verification: exchange 410, flk_ proxy 401 with approval guidance, vault status shows source field.
+---
 Task ID: 1
 Agent: Main Agent (Z.ai Code)
 Task: User provided GitHub PAT (ghp_emeD...) and asked to (a) check all repos and links, (b) get every site indexed "in one go".

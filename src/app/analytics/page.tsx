@@ -92,12 +92,12 @@ function Kpi({
         <span className={`flex h-7 w-7 items-center justify-center rounded-lg ring-1 ${toneMap[tone]}`}>
           {icon}
         </span>
-        <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+        <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-400">
           {label}
         </span>
       </div>
       <div className="mt-2 text-2xl font-semibold tracking-tight text-zinc-100">{value}</div>
-      {sub ? <div className="mt-0.5 text-[10px] text-zinc-600">{sub}</div> : null}
+      {sub ? <div className="mt-0.5 text-[10px] text-zinc-400">{sub}</div> : null}
     </Card>
   );
 }
@@ -175,7 +175,7 @@ export default function AnalyticsPage() {
               <Gauge className="h-5 w-5 text-emerald-400" />
               Fleet Analytics
             </h1>
-            <p className="mt-1 text-xs text-zinc-500">
+            <p className="mt-1 text-xs text-zinc-400">
               {data
                 ? `Aggregated ${relativeTime(data.generatedAt)} · ${FLEET.length} sites tracked`
                 : "Loading fleet telemetry…"}
@@ -221,7 +221,7 @@ export default function AnalyticsPage() {
                   >
                     {autoHeal ? "ARMED" : "OFF"}
                   </Badge>
-                  <span className="ml-auto flex items-center gap-2 text-[10px] font-normal text-zinc-500">
+                  <span className="ml-auto flex items-center gap-2 text-[10px] font-normal text-zinc-400">
                     {toggling ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
                     heals on every fleet check
                     <Switch
@@ -234,7 +234,7 @@ export default function AnalyticsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 pt-0">
-                <p className="text-[11px] leading-relaxed text-zinc-500">
+                <p className="text-[11px] leading-relaxed text-zinc-400">
                   On every fresh check the pilot <span className="text-zinc-300">re-attaches</span> fleet
                   domains that point at a stale project and{" "}
                   <span className="text-zinc-300">redeploys</span> down sites from GitHub main — never
@@ -251,7 +251,7 @@ export default function AnalyticsPage() {
                           ) : a.status === "error" ? (
                             <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-400" />
                           ) : (
-                            <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-600" />
+                            <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-400" />
                           )}
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-1.5">
@@ -263,16 +263,16 @@ export default function AnalyticsPage() {
                                     ? "border-sky-500/30 bg-sky-500/10 text-sky-300"
                                     : a.status === "error"
                                       ? "border-rose-500/30 bg-rose-500/10 text-rose-300"
-                                      : "border-white/10 bg-white/5 text-zinc-500"
+                                      : "border-white/10 bg-white/5 text-zinc-400"
                                 }`}
                               >
                                 {a.status}
                               </Badge>
                               {a.project ? (
-                                <span className="text-[9px] text-zinc-600">{a.project}</span>
+                                <span className="text-[9px] text-zinc-400">{a.project}</span>
                               ) : null}
                             </div>
-                            <p className="mt-0.5 text-[10px] leading-snug text-zinc-500">
+                            <p className="mt-0.5 text-[10px] leading-snug text-zinc-400">
                               {a.detail} · {relativeTime(a.ts)}
                             </p>
                           </div>
@@ -281,7 +281,7 @@ export default function AnalyticsPage() {
                     </div>
                   </div>
                 ) : (
-                  <p className="flex items-center gap-1.5 rounded-lg border border-white/5 bg-white/[0.02] p-3 text-[10px] text-zinc-600">
+                  <p className="flex items-center gap-1.5 rounded-lg border border-white/5 bg-white/[0.02] p-3 text-[10px] text-zinc-400">
                     <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
                     No self-heal actions yet — either everything is healthy or every down site was
                     inside its cooldown.
@@ -354,7 +354,7 @@ export default function AnalyticsPage() {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-xs font-medium text-zinc-400">
                     Fleet SEO score trend
-                    <span className="ml-2 text-[10px] font-normal text-zinc-600">
+                    <span className="ml-2 text-[10px] font-normal text-zinc-400">
                       stored fresh checks · {scoreData.length} samples
                     </span>
                   </CardTitle>
@@ -406,7 +406,7 @@ export default function AnalyticsPage() {
                       </ResponsiveContainer>
                     </div>
                   ) : (
-                    <p className="flex h-48 items-center justify-center text-[11px] text-zinc-600">
+                    <p className="flex h-48 items-center justify-center text-[11px] text-zinc-400">
                       Not enough samples yet — run a fresh check from the overview.
                     </p>
                   )}
@@ -417,7 +417,7 @@ export default function AnalyticsPage() {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-xs font-medium text-zinc-400">
                     IndexNow submissions · 14 days
-                    <span className="ml-2 text-[10px] font-normal text-zinc-600">
+                    <span className="ml-2 text-[10px] font-normal text-zinc-400">
                       URLs pushed to search engines per day
                     </span>
                   </CardTitle>
@@ -468,7 +468,7 @@ export default function AnalyticsPage() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-xs font-medium text-zinc-400">
                   Per-site analytics
-                  <span className="ml-2 text-[10px] font-normal text-zinc-600">
+                  <span className="ml-2 text-[10px] font-normal text-zinc-400">
                     sorted by uptime · live Vercel join when connected
                   </span>
                 </CardTitle>
@@ -476,7 +476,7 @@ export default function AnalyticsPage() {
               <CardContent>
                 <div className="max-h-96 overflow-y-auto [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10">
                   <table className="w-full text-left text-[11px]">
-                    <thead className="sticky top-0 bg-[#0a0c10] text-[9px] uppercase tracking-wider text-zinc-600">
+                    <thead className="sticky top-0 bg-[#0a0c10] text-[9px] uppercase tracking-wider text-zinc-400">
                       <tr>
                         <th className="px-3 py-2 font-medium">site</th>
                         <th className="px-3 py-2 font-medium">uptime</th>
@@ -501,7 +501,7 @@ export default function AnalyticsPage() {
                               <div className="truncate font-mono text-[10px] text-zinc-300">
                                 {site.host}
                               </div>
-                              <div className="truncate text-[9px] text-zinc-600">{site.label}</div>
+                              <div className="truncate text-[9px] text-zinc-400">{site.label}</div>
                             </td>
                             <td className="px-3 py-2">
                               {u ? (
@@ -517,13 +517,13 @@ export default function AnalyticsPage() {
                                   {u.pct}%
                                 </span>
                               ) : (
-                                <span className="text-zinc-600">no samples</span>
+                                <span className="text-zinc-400">no samples</span>
                               )}
-                              <span className="ml-1 text-[9px] text-zinc-600">
+                              <span className="ml-1 text-[9px] text-zinc-400">
                                 ({u?.checked ?? 0})
                               </span>
                             </td>
-                            <td className={`px-3 py-2 font-medium ${u ? scoreToneClass(u.avgScore) : "text-zinc-600"}`}>
+                            <td className={`px-3 py-2 font-medium ${u ? scoreToneClass(u.avgScore) : "text-zinc-400"}`}>
                               {u ? u.avgScore : "—"}
                             </td>
                             <td className="px-3 py-2 text-zinc-400">
@@ -541,12 +541,12 @@ export default function AnalyticsPage() {
                                   >
                                     {projStats.last.state}
                                   </Badge>
-                                  <span className="text-[9px] text-zinc-600">
+                                  <span className="text-[9px] text-zinc-400">
                                     {relativeTime(projStats.last.createdAt)}
                                   </span>
                                 </span>
                               ) : (
-                                <span className="text-zinc-600">—</span>
+                                <span className="text-zinc-400">—</span>
                               )}
                             </td>
                             <td className="px-3 py-2">
@@ -557,12 +557,12 @@ export default function AnalyticsPage() {
                                       {repo.language}
                                     </span>
                                   ) : null}
-                                  <span className="text-[9px] text-zinc-600">
+                                  <span className="text-[9px] text-zinc-400">
                                     pushed {relativeTime(repo.pushedAt)}
                                   </span>
                                 </span>
                               ) : (
-                                <span className="text-zinc-600">—</span>
+                                <span className="text-zinc-400">—</span>
                               )}
                             </td>
                           </tr>
@@ -580,14 +580,14 @@ export default function AnalyticsPage() {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-xs font-medium text-zinc-400">
                     Recent production deployments
-                    <span className="ml-2 text-[10px] font-normal text-zinc-600">
+                    <span className="ml-2 text-[10px] font-normal text-zinc-400">
                       last 8 across the Vercel account
                     </span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   {data.deployments.recent.length === 0 ? (
-                    <p className="text-[11px] text-zinc-600">No deployments returned.</p>
+                    <p className="text-[11px] text-zinc-400">No deployments returned.</p>
                   ) : (
                     <div className="divide-y divide-white/5 rounded-lg border border-white/5">
                       {data.deployments.recent.map((d) => (
@@ -603,9 +603,9 @@ export default function AnalyticsPage() {
                           </Badge>
                           <span className="font-mono text-zinc-300">{d.project}</span>
                           {d.sha ? (
-                            <span className="font-mono text-[9px] text-zinc-600">{d.sha}</span>
+                            <span className="font-mono text-[9px] text-zinc-400">{d.sha}</span>
                           ) : null}
-                          <span className="ml-auto text-[9px] text-zinc-600">
+                          <span className="ml-auto text-[9px] text-zinc-400">
                             {relativeTime(d.createdAt)}
                           </span>
                         </div>
@@ -616,7 +616,7 @@ export default function AnalyticsPage() {
               </Card>
             ) : (
               <Card className="border-dashed border-white/10 bg-white/[0.02]">
-                <CardContent className="p-4 text-[11px] leading-relaxed text-zinc-500">
+                <CardContent className="p-4 text-[11px] leading-relaxed text-zinc-400">
                   Connect a Vercel token on the Integrations page to unlock deployment analytics —
                   counts, per-project stats and the live deployment feed.
                 </CardContent>
@@ -624,7 +624,7 @@ export default function AnalyticsPage() {
             )}
           </>
         ) : (
-          <p className="text-xs text-zinc-500">Analytics unavailable — try refreshing.</p>
+          <p className="text-xs text-zinc-400">Analytics unavailable — try refreshing.</p>
         )}
       </main>
     </AppShell>

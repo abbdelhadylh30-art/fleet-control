@@ -43,7 +43,7 @@ export default function NotFound() {
         <h1 className="text-base font-semibold text-zinc-100">
           Off the chart
         </h1>
-        <p className="mx-auto mt-2 max-w-[34ch] text-balance text-sm leading-relaxed text-zinc-500">
+        <p className="mx-auto mt-2 max-w-[34ch] text-balance text-sm leading-relaxed text-zinc-400">
           This coordinate isn&apos;t in the fleet. The page may have moved, or
           the link that brought you here is stale.
         </p>
@@ -60,7 +60,7 @@ export default function NotFound() {
           </Button>
         </div>
 
-        <p className="mt-8 font-mono text-[12px] text-zinc-600">
+        <p className="mt-8 font-mono text-[12px] text-zinc-400">
           every other route is under the management lock
         </p>
       </div>

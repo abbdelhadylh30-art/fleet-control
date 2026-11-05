@@ -47,7 +47,7 @@ export default function IntegrationsPage() {
             <h1 className="text-lg font-semibold tracking-tight text-zinc-100">
               Integrations &amp; setup
             </h1>
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-zinc-400">
               Vault your tokens, connect Google once, fix Vercel assignments —
               everything external lives here.
             </p>
@@ -56,7 +56,7 @@ export default function IntegrationsPage() {
 
         <section aria-label="Integrations" className="space-y-4">
           {loading ? (
-            <div className="flex items-center justify-center gap-2 rounded-2xl border border-white/5 bg-zinc-900/60 py-16 text-sm text-zinc-500">
+            <div className="flex items-center justify-center gap-2 rounded-2xl border border-white/5 bg-zinc-900/60 py-16 text-sm text-zinc-400">
               <Loader2 className="h-4 w-4 animate-spin" /> loading fleet data…
             </div>
           ) : (

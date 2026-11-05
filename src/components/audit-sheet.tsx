@@ -200,16 +200,16 @@ function AuditRow({
             <X className="h-3.5 w-3.5" />
           )}
         </span>
-        <Icon className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+        <Icon className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
         <span className="min-w-0 flex-1 truncate text-xs font-medium text-zinc-200">
           {label}
         </span>
-        <span className="max-w-[55%] shrink truncate text-right font-mono text-[10px] text-zinc-500">
+        <span className="max-w-[55%] shrink truncate text-right font-mono text-[10px] text-zinc-400">
           {value}
         </span>
       </div>
       {hint && state !== "ok" ? (
-        <p className="mt-1.5 pl-[3.25rem] text-[11px] leading-relaxed text-zinc-500">
+        <p className="mt-1.5 pl-[3.25rem] text-[11px] leading-relaxed text-zinc-400">
           <span
             className={
               state === "warn" ? "text-amber-400/80" : "text-rose-400/80"
@@ -237,7 +237,7 @@ function SectionTitle({
 }) {
   return (
     <div className="mb-2.5 flex items-center justify-between">
-      <h3 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+      <h3 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
         <Icon className="h-3.5 w-3.5 text-emerald-400/80" />
         {children}
       </h3>
@@ -303,7 +303,7 @@ export function AuditSheet({
                       href={`https://${site.host}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="mt-0.5 inline-flex items-center gap-0.5 font-mono text-xs text-zinc-500 transition-colors hover:text-emerald-400"
+                      className="mt-0.5 inline-flex items-center gap-0.5 font-mono text-xs text-zinc-400 transition-colors hover:text-emerald-400"
                     >
                       {site.host}
                       <ArrowUpRight className="h-3 w-3" />
@@ -329,7 +329,7 @@ export function AuditSheet({
                       className="rounded-lg bg-white/[0.03] p-2 ring-1 ring-white/5"
                     >
                       <div className="mb-1 flex items-baseline justify-between gap-1">
-                        <span className="text-[9px] font-medium uppercase tracking-wide text-zinc-500">
+                        <span className="text-[9px] font-medium uppercase tracking-wide text-zinc-400">
                           {b.label}
                         </span>
                         <span
@@ -350,7 +350,7 @@ export function AuditSheet({
                           style={{ width: `${pct}%` }}
                         />
                       </div>
-                      <div className="mt-1 text-[9px] tabular-nums text-zinc-600">
+                      <div className="mt-1 text-[9px] tabular-nums text-zinc-400">
                         / {b.max} pts
                       </div>
                     </div>
@@ -387,22 +387,22 @@ export function AuditSheet({
                       />
                     ) : (
                       <div className="flex aspect-[1.91/1] w-full flex-col items-center justify-center gap-1.5 bg-white/[0.02] text-center">
-                        <ImageIcon className="h-5 w-5 text-zinc-700" />
-                        <p className="px-6 text-[11px] leading-relaxed text-zinc-600">
+                        <ImageIcon className="h-5 w-5 text-zinc-500" />
+                        <p className="px-6 text-[11px] leading-relaxed text-zinc-400">
                           No og:image — chat apps show a blank card when this
                           link is shared
                         </p>
                       </div>
                     )}
                     <div className="space-y-1 border-t border-white/5 p-3">
-                      <p className="font-mono text-[10px] uppercase tracking-wide text-zinc-600">
+                      <p className="font-mono text-[10px] uppercase tracking-wide text-zinc-400">
                         {site.host}
                       </p>
                       <p className="truncate text-sm font-medium text-zinc-200">
                         {a.ogTitleText ?? a.title ?? site.label}
                       </p>
                       {a.ogDescText || a.description ? (
-                        <p className="line-clamp-2 text-xs leading-relaxed text-zinc-500">
+                        <p className="line-clamp-2 text-xs leading-relaxed text-zinc-400">
                           {a.ogDescText ?? a.description}
                         </p>
                       ) : null}
@@ -415,7 +415,7 @@ export function AuditSheet({
                   <SectionTitle
                     icon={Gauge}
                     right={
-                      <span className="text-[10px] tabular-nums text-zinc-600">
+                      <span className="text-[10px] tabular-nums text-zinc-400">
                         {breakdown[0].got + breakdown[1].got} / 50 pts
                       </span>
                     }
@@ -505,7 +505,7 @@ export function AuditSheet({
                   <SectionTitle
                     icon={ShieldCheck}
                     right={
-                      <span className="text-[10px] tabular-nums text-zinc-600">
+                      <span className="text-[10px] tabular-nums text-zinc-400">
                         {breakdown[2].got + breakdown[3].got} / 50 pts
                       </span>
                     }
@@ -627,7 +627,7 @@ export function AuditSheet({
             </div>
           </>
         ) : (
-          <div className="flex flex-1 items-center justify-center text-sm text-zinc-600">
+          <div className="flex flex-1 items-center justify-center text-sm text-zinc-400">
             Loading audit…
           </div>
         )}

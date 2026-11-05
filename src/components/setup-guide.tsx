@@ -93,13 +93,13 @@ function StepHead({
         type="button"
         onClick={onToggle}
         className={`text-sm font-semibold transition-colors ${
-          done ? "text-zinc-500 line-through" : "text-zinc-100"
+          done ? "text-zinc-400 line-through" : "text-zinc-100"
         }`}
       >
         {title}
       </button>
       {chip}
-      <span className="ml-auto text-[9px] text-zinc-600 group-hover:text-zinc-500">
+      <span className="ml-auto text-[9px] text-zinc-400 group-hover:text-zinc-400">
         {done ? "done — click to undo" : "click number to mark done"}
       </span>
       {icon}
@@ -230,7 +230,7 @@ export function SetupGuide({
             className={`gap-1 px-2 py-0.5 text-[10px] ${
               doneCount > 0
                 ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-300"
-                : "border-white/10 bg-white/[0.03] text-zinc-500"
+                : "border-white/10 bg-white/[0.03] text-zinc-400"
             }`}
           >
             <ListChecks className="h-3 w-3" /> {doneCount}/6 steps done
@@ -281,7 +281,7 @@ export function SetupGuide({
               ) : undefined
             }
           />
-          <p className="mt-2 pl-[42px] text-xs leading-relaxed text-zinc-500">
+          <p className="mt-2 pl-[42px] text-xs leading-relaxed text-zinc-400">
             One <span className="text-zinc-300">Domain property</span> —{" "}
             <code className="rounded bg-black/30 px-1 font-mono text-[10px] text-emerald-300">
               {GSC_RESOURCE}
@@ -313,7 +313,7 @@ export function SetupGuide({
               <LinkBtn href={GSC_LINKS.sitemaps}>Open Sitemaps page</LinkBtn>
             }
           />
-          <p className="mt-2 pl-[42px] text-xs leading-relaxed text-zinc-500">
+          <p className="mt-2 pl-[42px] text-xs leading-relaxed text-zinc-400">
             In Search Console → <span className="text-zinc-300">Sitemaps</span>: click{" "}
             <span className="text-zinc-300">Add a new sitemap</span>, paste each URL below (only the
             part after the domain — GSC prefills{" "}
@@ -336,7 +336,7 @@ export function SetupGuide({
               >
                 <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
                 <span className="truncate text-[11px] text-zinc-300">{s.host}</span>
-                <span className="ml-auto shrink-0 text-[9px] text-zinc-600">
+                <span className="ml-auto shrink-0 text-[9px] text-zinc-400">
                   {s.health.sitemapUrls} URLs
                 </span>
                 <button
@@ -345,7 +345,7 @@ export function SetupGuide({
                   onClick={() =>
                     void copyText(`https://${s.host}/sitemap.xml`, `Sitemap URL for ${s.host} copied`)
                   }
-                  className="text-zinc-600 opacity-0 transition-opacity hover:text-emerald-300 group-hover:opacity-100"
+                  className="text-zinc-400 opacity-0 transition-opacity hover:text-emerald-300 group-hover:opacity-100"
                 >
                   <Copy className="h-3 w-3" />
                 </button>
@@ -368,14 +368,14 @@ export function SetupGuide({
                   <CheckCircle2 className="h-2.5 w-2.5" /> Google API connected
                 </Badge>
               ) : (
-                <Badge variant="outline" className="gap-1 border-white/10 bg-white/[0.03] px-1.5 py-0 text-[9px] text-zinc-500">
+                <Badge variant="outline" className="gap-1 border-white/10 bg-white/[0.03] px-1.5 py-0 text-[9px] text-zinc-400">
                   manual mode is fine
                 </Badge>
               )
             }
           />
           {gscAuth?.connected ? (
-            <p className="mt-2 pl-[42px] text-xs leading-relaxed text-zinc-500">
+            <p className="mt-2 pl-[42px] text-xs leading-relaxed text-zinc-400">
               The <span className="text-zinc-300">Google panel below</span> can push every sitemap
               through the Search Console API in one click — and it keeps a submission history with
               per-sitemap counts. Re-run it any time you ship new pages.
@@ -387,7 +387,7 @@ export function SetupGuide({
               ) : null}
             </p>
           ) : (
-            <p className="mt-2 pl-[42px] text-xs leading-relaxed text-zinc-500">
+            <p className="mt-2 pl-[42px] text-xs leading-relaxed text-zinc-400">
               Prefer zero manual repeating? In the{" "}
               <span className="text-zinc-300">Google panel below</span>, connect a Google API token
               once (OAuth Playground, 3 minutes — the panel walks you through it) — and choose{" "}
@@ -407,7 +407,7 @@ export function SetupGuide({
             n="4"
             title="Fast-track the pages that matter most"
           />
-          <p className="mt-2 pl-[42px] text-xs leading-relaxed text-zinc-500">
+          <p className="mt-2 pl-[42px] text-xs leading-relaxed text-zinc-400">
             Sitemaps say <span className="text-zinc-300">“here is everything”</span>; URL Inspection
             says <span className="text-zinc-300">“crawl this one now”</span>. Google allows roughly{" "}
             <span className="text-zinc-300">10–12 requests per day</span> — spend them on the
@@ -423,7 +423,7 @@ export function SetupGuide({
                 key={u}
                 className="group flex items-center gap-2 rounded-lg border border-white/5 bg-black/20 px-2.5 py-1.5 transition-colors hover:border-emerald-500/20"
               >
-                <span className="shrink-0 text-[9px] font-bold text-zinc-600">#{i + 1}</span>
+                <span className="shrink-0 text-[9px] font-bold text-zinc-400">#{i + 1}</span>
                 <span className="truncate text-[11px] text-zinc-300">
                   {u.replace("https://", "")}
                 </span>
@@ -432,7 +432,7 @@ export function SetupGuide({
                   target="_blank"
                   rel="noreferrer"
                   aria-label={`inspect ${u} in Google Search Console`}
-                  className="ml-auto shrink-0 text-[9px] text-zinc-600 transition-colors hover:text-emerald-300"
+                  className="ml-auto shrink-0 text-[9px] text-zinc-400 transition-colors hover:text-emerald-300"
                 >
                   inspect <ExternalLink className="inline h-2.5 w-2.5" />
                 </a>
@@ -467,7 +467,7 @@ export function SetupGuide({
           />
           {missing.length > 0 ? (
             <>
-              <p className="mt-2 pl-[42px] text-xs leading-relaxed text-zinc-500">
+              <p className="mt-2 pl-[42px] text-xs leading-relaxed text-zinc-400">
                 These sites can&apos;t be fully indexed yet — not because of Google, but because
                 their sitemap isn&apos;t reachable. The fix is in the{" "}
                 <span className="text-zinc-300">Vercel dashboard</span> (attach the domain to the
@@ -498,12 +498,12 @@ export function SetupGuide({
                           href={`https://${s.host}/sitemap.xml`}
                           target="_blank"
                           rel="noreferrer"
-                          className="ml-auto text-[9px] text-zinc-600 hover:text-zinc-400"
+                          className="ml-auto text-[9px] text-zinc-400 hover:text-zinc-400"
                         >
                           check sitemap <ExternalLink className="inline h-2.5 w-2.5" />
                         </a>
                       </div>
-                      <p className="mt-1 text-[10px] leading-relaxed text-zinc-500">
+                      <p className="mt-1 text-[10px] leading-relaxed text-zinc-400">
                         {s.blocker ??
                           s.note ??
                           "sitemap.xml is not reachable on this host yet — verify the deployment is live and the domain attached."}
@@ -538,7 +538,7 @@ export function SetupGuide({
               </>
             }
           />
-          <ul className="mt-2 space-y-1.5 pl-[42px] text-xs leading-relaxed text-zinc-500">
+          <ul className="mt-2 space-y-1.5 pl-[42px] text-xs leading-relaxed text-zinc-400">
             <li className="flex gap-2">
               <Rocket className="mt-0.5 h-3 w-3 shrink-0 text-emerald-400" />
               <span>
@@ -576,13 +576,13 @@ export function SetupGuide({
         </section>
 
         {/* bing footnote */}
-        <div className="flex flex-wrap items-center gap-2 rounded-xl bg-white/[0.03] p-3 text-[11px] text-zinc-500 ring-1 ring-white/5">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl bg-white/[0.03] p-3 text-[11px] text-zinc-400 ring-1 ring-white/5">
           <Badge
             variant="outline"
             className={`gap-1 px-1.5 py-0 text-[9px] ${
               bing.verified
                 ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-400"
-                : "border-white/10 bg-white/[0.03] text-zinc-500"
+                : "border-white/10 bg-white/[0.03] text-zinc-400"
             }`}
           >
             {bing.verified ? <CheckCircle2 className="h-2.5 w-2.5" /> : <Circle className="h-2.5 w-2.5" />}
@@ -599,7 +599,7 @@ export function SetupGuide({
           )}
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="ml-auto cursor-default text-[10px] text-zinc-600 underline decoration-dotted">
+              <span className="ml-auto cursor-default text-[10px] text-zinc-400 underline decoration-dotted">
                 why Bing first?
               </span>
             </TooltipTrigger>

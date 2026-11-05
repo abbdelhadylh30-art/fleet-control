@@ -54,7 +54,7 @@ export function ActivityPanel() {
             <Activity className="h-4 w-4 text-emerald-400" />
             IndexNow activity
           </h2>
-          <p className="mt-1 text-[11px] text-zinc-600">
+          <p className="mt-1 text-[11px] text-zinc-400">
             {log.length} entries · {hosts} hosts · all-time total{" "}
             <span className="tabular-nums text-zinc-400">{totalUrls} URLs</span>
           </p>
@@ -67,7 +67,7 @@ export function ActivityPanel() {
             disabled={refreshing}
             onClick={() => void load(true)}
             aria-label="Refresh activity log"
-            className="h-8 w-8 p-0 text-zinc-500 hover:bg-white/5 hover:text-emerald-300"
+            className="h-8 w-8 p-0 text-zinc-400 hover:bg-white/5 hover:text-emerald-300"
           >
             {refreshing ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -80,13 +80,13 @@ export function ActivityPanel() {
       <ScrollArea className="scrollbar-thin max-h-[32rem]">
         <div className="divide-y divide-white/5">
           {loading ? (
-            <div className="flex items-center justify-center gap-2 p-10 text-sm text-zinc-500">
+            <div className="flex items-center justify-center gap-2 p-10 text-sm text-zinc-400">
               <Loader2 className="h-4 w-4 animate-spin" /> loading submissions…
             </div>
           ) : log.length === 0 ? (
             <div className="flex flex-col items-center gap-2 p-10 text-center">
-              <Send className="h-6 w-6 text-zinc-700" />
-              <p className="text-sm text-zinc-500">
+              <Send className="h-6 w-6 text-zinc-500" />
+              <p className="text-sm text-zinc-400">
                 No submissions yet — hit{" "}
                 <span className="text-emerald-400">Submit all</span> on the
                 Overview page to push the fleet into Bing/Yandex.
@@ -112,7 +112,7 @@ export function ActivityPanel() {
                 >
                   {e.host}
                 </span>
-                <span className="shrink-0 text-xs tabular-nums text-zinc-500">
+                <span className="shrink-0 text-xs tabular-nums text-zinc-400">
                   {e.urls} URLs
                 </span>
                 <Badge
@@ -131,7 +131,7 @@ export function ActivityPanel() {
                     AUTO
                   </Badge>
                 ) : null}
-                <span className="w-16 shrink-0 text-right text-[11px] text-zinc-600 transition-colors group-hover/entry:text-zinc-400">
+                <span className="w-16 shrink-0 text-right text-[11px] text-zinc-400 transition-colors group-hover/entry:text-zinc-400">
                   {relativeTime(e.ts)}
                 </span>
               </div>

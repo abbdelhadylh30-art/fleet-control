@@ -1,25 +1,24 @@
 // ─── Agent vault — connect tokens once, mint revocable agent links ──────────
-// The user's idea, implemented: tokens are pasted into the DASHBOARD (never
-// into chat). The dashboard stores them server-side and mints scoped, expiring
-// "agent links". The AI (or any automation) receives ONLY the link — it can
-// then call /api/agent/proxy to run GitHub/Vercel operations through this
-// server. Real tokens never appear in chat, sessions can be revoked without
-// rotating the underlying tokens, and every proxy call is logged for the user
-// to audit in the UI.
-//
-// STORAGE (all chmod 600, server-side only):
-//   db/github-auth.json    — GitHub PAT + account info
-//   db/agent-sessions.json — minted sessions (key, scopes, expiry, usage)
-//   db/agent-activity.json — audit log of agent proxy calls (cap 200)
-// Vercel tokens live in db/vercel-auth.json via lib/vercel-ops.ts (shared).
+// v22 (2026-11-05): the ACCESS MODEL is now approval-only — temp passwords
+// (fac_…) minted in the dashboard, the AI requests, the owner approves, the
+// AI works under a 1-hour derived session (fls_…). Direct agent links and
+// pair codes are retired (resolveSession rejects flk_; /exchange and /pair
+// return 410). Tokens live in the durable Postgres vault (pg-state) — add /
+// disconnect them from the dashboard at any time; the db/ files are a local-
+// dev mirror only and the env vars (FLEET_GITHUB_TOKEN / FLEET_VERCEL_TOKEN /
+// FLEET_AGENT_KEYS) act as fallbacks that a disconnect marker can suppress.
 
 import { promises as fs } from "fs";
 import path from "path";
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "crypto";
 
-import { mutateState, readState } from "@/lib/pg-state";
+import { deleteState, mutateState, readState, writeState } from "@/lib/pg-state";
 
 const GITHUB_AUTH_PATH = path.join(process.cwd(), "db", "github-auth.json");
+// v22: the PRIMARY token store is durable Postgres (pg-state) — the db/ file
+// mirror silently failed on serverless (read-only FS), which made the
+// dashboard's "Validate & vault it" button a no-op on deployed instances.
+const GITHUB_STATE_KEY = "vault-github-auth";
 
 const GITHUB_API = "https://api.github.com";
 const MAX_ACTIVITY = 200;
@@ -144,34 +143,61 @@ function envGithubStore(): GithubAuthStore | null {
 }
 
 export async function readGithubAuth(): Promise<GithubAuthStore | null> {
-  // true disconnect: a durable marker suppresses file AND env fallbacks
+  // true disconnect: a durable marker suppresses pg, file AND env fallbacks
   if ((await readDisableFlags()).github) return null;
+  // 1 · durable Postgres vault (survives cold starts — this is what makes
+  //     "add a token by will" actually work on the deployed instance)
+  const stored = await readState<GithubAuthStore>(GITHUB_STATE_KEY);
+  if (stored?.token) return stored;
+  // 2 · local file (dev convenience)  3 · env fallback
   const store = await readJson<GithubAuthStore>(GITHUB_AUTH_PATH);
   return store?.token ? store : envGithubStore();
 }
 
-export async function githubStatus(): Promise<{
+export interface GithubStatus {
   connected: boolean;
   savedAt: string | null;
   account: { login: string; type: string; scopes: string | null } | null;
   disabledAt: string | null;
-}> {
-  const disabledAt = (await readDisableFlags()).github ?? null;
-  const store = disabledAt ? null : await readGithubAuth();
-  return {
-    connected: !!store,
-    savedAt: store?.savedAt ?? null,
-    account: store
-      ? { login: store.account.login, type: store.account.type, scopes: store.account.scopes }
-      : null,
-    disabledAt,
-  };
+  /** "vault" = a token the OWNER added via the dashboard; "env" = fallback. */
+  source: "vault" | "env" | null;
 }
 
-/** Validate a GitHub PAT live against /user, then store it (chmod 600). */
+export async function githubStatus(): Promise<GithubStatus> {
+  const disabledAt = (await readDisableFlags()).github ?? null;
+  if (disabledAt) {
+    return { connected: false, savedAt: null, account: null, disabledAt, source: null };
+  }
+  const stored = await readState<GithubAuthStore>(GITHUB_STATE_KEY);
+  if (stored?.token) {
+    return {
+      connected: true,
+      savedAt: stored.savedAt || null,
+      account: stored.account,
+      disabledAt: null,
+      source: "vault",
+    };
+  }
+  const store = await readJson<GithubAuthStore>(GITHUB_AUTH_PATH);
+  if (store?.token) {
+    return {
+      connected: true,
+      savedAt: store.savedAt || null,
+      account: store.account,
+      disabledAt: null,
+      source: "vault",
+    };
+  }
+  const env = envGithubStore();
+  return env
+    ? { connected: true, savedAt: null, account: env.account, disabledAt: null, source: "env" }
+    : { connected: false, savedAt: null, account: null, disabledAt: null, source: null };
+}
+
+/** Validate a GitHub PAT live against /user, then vault it (Postgres, durable). */
 export async function connectGithub(
   rawToken: string,
-): Promise<{ ok: boolean; error?: string; login?: string }> {
+): Promise<{ ok: boolean; error?: string; login?: string; persisted?: boolean }> {
   const token = rawToken.trim();
   if (token.length < 20 || /\s/.test(token)) {
     return {
@@ -201,9 +227,7 @@ export async function connectGithub(
     }
     const body = (await res.json()) as { login?: string; type?: string };
     const scopes = res.headers.get("x-oauth-scopes");
-    // reconnecting clears the disconnect marker — the vault is live again
-    await setDisableFlag("github", false);
-    await writeJson(GITHUB_AUTH_PATH, {
+    const store: GithubAuthStore = {
       token,
       savedAt: new Date().toISOString(),
       account: {
@@ -211,8 +235,15 @@ export async function connectGithub(
         type: String(body.type ?? "User"),
         scopes: scopes && scopes.length > 0 ? scopes : null,
       },
-    });
-    return { ok: true, login: String(body.login ?? "unknown") };
+    };
+    // reconnecting clears the disconnect marker — the vault is live again
+    await setDisableFlag("github", false);
+    // durable vault FIRST (Postgres row survives cold starts), file mirror is
+    // best-effort for local dev — this is the fix for the silent no-op that
+    // "add token" used to be on serverless
+    const persisted = await writeState(GITHUB_STATE_KEY, store);
+    await writeJson(GITHUB_AUTH_PATH, store);
+    return { ok: true, login: store.account.login, persisted };
   } catch (e) {
     return {
       ok: false,
@@ -222,12 +253,14 @@ export async function connectGithub(
 }
 
 export async function disconnectGithub(): Promise<void> {
+  // remove the durable vault row AND the local file mirror — then suppress
+  // the env fallback too; this is what makes disconnect REAL
+  await deleteState(GITHUB_STATE_KEY);
   try {
     await fs.rm(GITHUB_AUTH_PATH, { force: true });
   } catch {
     /* best-effort */
   }
-  // suppress the env fallback too — this is what makes disconnect REAL
   await setDisableFlag("github", true);
 }
 
@@ -421,67 +454,43 @@ function envSession(key: string): AgentSession | null {
 }
 
 /** Resolve a capability key → live session (or null with a reason).
- * Accepts `flk_…` links (store / env) AND `fls_…` derived sessions — the
- * 1-hour handshake tokens minted by /api/agent/exchange. */
+ * v22: ONLY `fls_…` derived approval sessions resolve here. Direct agent
+ * links (`flk_…`, store or env) are retired — access is granted exclusively
+ * through the temp-password + approval flow (/api/agent/access). */
 export async function resolveSession(
   key: string | null,
 ): Promise<{ session: AgentSession } | { error: string }> {
-  if (!key || (!key.startsWith("flk_") && !key.startsWith("fls_"))) {
-    return { error: "missing or malformed session key — send the agent link" };
-  }
-  if (key.startsWith("fls_")) {
-    const p = verifyDerivedToken(key);
-    if (!p) return { error: "invalid or expired derived session — exchange again" };
-    const parent = await findParentByHash(p.ph);
-    if (!parent) return { error: "parent link is gone — this derived session is dead" };
-    const scopes = p.sc.filter((s) => parent.scopes.includes(s));
-    if (scopes.length === 0) return { error: "derived session has no usable scopes" };
+  if (!key || !key.startsWith("fls_")) {
     return {
-      session: {
-        id: `derived_${p.jti}`,
-        keyHash: keyHashOf(key),
-        keyHint: `fls_…${key.slice(-4)}`,
-        label: `derived session · ${parent.label}`,
-        scopes,
-        createdAt: new Date().toISOString(),
-        expiresAt: new Date(p.exp).toISOString(),
-        lastUsedAt: null,
-        callCount: 0,
-        revoked: false,
-      },
+      error:
+        "direct agent links are disabled — ask the owner for a temp password (fac_…) and use /api/agent/access (request → approval → poll)",
     };
   }
-  const sessions = await readSessions();
-  // timing-safe scan: never short-circuit on key bytes (defense in depth —
-  // a 48-hex-char key is unguessable anyway, but comparisons shouldn't leak)
-  let session: AgentSession | undefined;
-  let legacyMatch: AgentSession | undefined;
-  for (const s of sessions) {
-    if (sessionMatchesKey(s, key)) {
-      session = s;
-      // pre-H5 rows still store the plaintext key — flag for migration
-      if (s.key && !s.keyHash) legacyMatch = s;
-      break;
-    }
-  }
-  if (session) {
-    if (session.revoked) return { error: "this agent link was revoked by the owner" };
-    if (new Date(session.expiresAt).getTime() < Date.now()) {
-      return { error: "this agent link has expired — generate a new one in the dashboard" };
-    }
-    // H5 migration: rewrite the legacy plaintext record as hash-only
-    if (legacyMatch) {
-      void migrateLegacySession(legacyMatch.id, legacyMatch.key as string);
-    }
-    return { session };
-  }
-  const env = envSession(key);
-  if (env) return { session: env };
-  return { error: "unknown session — generate a new agent link in the dashboard" };
+  const p = verifyDerivedToken(key);
+  if (!p) return { error: "invalid or expired derived session — request access again" };
+  const parent = await findParentByHash(p.ph);
+  if (!parent) return { error: "parent link is gone — this derived session is dead" };
+  const scopes = p.sc.filter((s) => parent.scopes.includes(s));
+  if (scopes.length === 0) return { error: "derived session has no usable scopes" };
+  return {
+    session: {
+      id: `derived_${p.jti}`,
+      keyHash: keyHashOf(key),
+      keyHint: `fls_…${key.slice(-4)}`,
+      label: `derived session · ${parent.label}`,
+      scopes,
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(p.exp).toISOString(),
+      lastUsedAt: null,
+      callCount: 0,
+      revoked: false,
+    },
+  };
 }
 
 /** Rewrite a pre-H5 plaintext session record as keyHash + keyHint (best-effort,
- * non-fatal — the next successful use retries). */
+ * non-fatal — the next successful use retries). RETAINED for reference since
+ * v22 retired the flk_ path that called it. */
 async function migrateLegacySession(id: string, plaintextKey: string): Promise<void> {
   try {
     await mutateSessions((sessions) =>
@@ -495,6 +504,7 @@ async function migrateLegacySession(id: string, plaintextKey: string): Promise<v
     /* best-effort */
   }
 }
+void migrateLegacySession;
 
 export async function touchSession(id: string): Promise<void> {
   const now = new Date().toISOString();

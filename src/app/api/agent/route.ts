@@ -1,12 +1,15 @@
-// ─── /api/agent — management plane for the Agent Link system ────────────────
+// ─── /api/agent — management plane for the approval-based access system ─────
 // GET  → vault status (masked), sessions, recent activity. No secrets.
 // POST → { action }:
-//   connect-github    { token }
+//   connect-github    { token }   → vaulted in durable Postgres
 //   disconnect-github
 //   connect-vercel    { token }   (shares the store with /api/vercel)
 //   disconnect-vercel
-//   create-session    { label, scopes[], ttlHours } → { key, url } (shown ONCE)
-//   revoke-session    { id }
+//   create-access-code { label, scopes[], ttlMinutes } → { code } (shown ONCE)
+//   revoke-access-code { id }
+//   approve-request / deny-request { id }
+//   revoke-session    { id }      (legacy cleanup)
+//   create-session    — RETIRED (v22): direct links are gone, 410
 
 import { NextResponse } from "next/server";
 
@@ -14,7 +17,6 @@ import {
   ALL_SCOPES,
   AgentScope,
   connectGithub,
-  createSession,
   disconnectGithub,
   githubStatus,
   logActivity,
@@ -168,39 +170,15 @@ export async function POST(request: Request) {
       }
 
       case "create-session": {
-        const scopes = Array.isArray(body.scopes)
-          ? (body.scopes.map(String) as AgentScope[]).filter((s) =>
-              ALL_SCOPES.includes(s),
-            )
-          : [];
-        if (scopes.length === 0) {
-          return NextResponse.json(
-            { ok: false, error: "Pick at least one scope for the agent link." },
-            { status: 400 },
-          );
-        }
-        const ttlHours = Number(body.ttlHours ?? 168); // default 7 days
-        const { session, url, key } = await createSession({
-          label: String(body.label ?? "agent session"),
-          scopes,
-          ttlHours: Number.isFinite(ttlHours) ? ttlHours : 168,
-        });
-        await logActivity({
-          t: new Date().toISOString(),
-          label: "dashboard (admin)",
-          provider: "-",
-          op: `minted agent link “${session.label}” (${scopes.join(", ")})`,
-          ok: true,
-          status: 200,
-        });
-        return NextResponse.json({
-          ok: true,
-          id: session.id,
-          key, // full key — shown once in the UI (H5: hash-only at rest)
-          url,
-          expiresAt: session.expiresAt,
-          scopes: session.scopes,
-        });
+        // v22: direct agent links are retired — access is approval-only.
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "retired: direct agent links are disabled — mint a temp access password (create-access-code) and use the approval flow instead",
+          },
+          { status: 410 },
+        );
       }
 
       case "revoke-session": {

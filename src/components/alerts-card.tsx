@@ -174,7 +174,7 @@ export function AlertsCard() {
             </span>
             <div>
               <h2 className="text-sm font-semibold tracking-tight text-zinc-100">Alert channels</h2>
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-zinc-400">
                 Get pinged on Telegram or a webhook when the fleet needs you.
               </p>
             </div>
@@ -205,7 +205,7 @@ export function AlertsCard() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-10 text-sm text-zinc-500">
+          <div className="flex items-center justify-center gap-2 py-10 text-sm text-zinc-400">
             <Loader2 className="h-4 w-4 animate-spin" /> loading channels…
           </div>
         ) : !data ? (
@@ -217,7 +217,7 @@ export function AlertsCard() {
             {/* channels */}
             <div className="space-y-2">
               {data.channels.length === 0 && (
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-zinc-400">
                   No channels yet — add Telegram for instant pings on your phone, or a webhook for
                   Slack/Discord.
                 </p>
@@ -236,7 +236,7 @@ export function AlertsCard() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-zinc-200">{ch.label}</p>
-                    <p className="truncate font-mono text-[11px] text-zinc-500">
+                    <p className="truncate font-mono text-[11px] text-zinc-400">
                       {ch.type === "telegram"
                         ? `${ch.botTokenMasked ?? ""}${ch.chatId ? ` → ${ch.chatId}` : ""}`
                         : ch.urlMasked}
@@ -268,7 +268,7 @@ export function AlertsCard() {
                     variant="ghost"
                     size="sm"
                     onClick={() => void act({ action: "delete-channel", id: ch.id }, "Channel removed")}
-                    className="h-8 px-2 text-zinc-500 hover:bg-rose-500/10 hover:text-rose-300"
+                    className="h-8 px-2 text-zinc-400 hover:bg-rose-500/10 hover:text-rose-300"
                     aria-label={`Delete ${ch.label}`}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -291,7 +291,7 @@ export function AlertsCard() {
               </button>
               {showTg && (
                 <div className="space-y-3 rounded-xl border border-white/5 bg-zinc-950/40 p-3">
-                  <ol className="list-decimal space-y-0.5 pl-4 text-[11px] leading-relaxed text-zinc-500">
+                  <ol className="list-decimal space-y-0.5 pl-4 text-[11px] leading-relaxed text-zinc-400">
                     <li>Message @BotFather → /newbot → copy the bot token.</li>
                     <li>Send your bot any message, then get your id from @userinfobot (or use a group&apos;s -100… id).</li>
                     <li>Paste both below and press Test.</li>
@@ -370,9 +370,9 @@ export function AlertsCard() {
 
             {/* event switches */}
             <div className="space-y-2">
-              <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">Notify me when</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-zinc-400">Notify me when</p>
               {data.legacyEnvWebhook && (
-                <p className="text-[11px] text-zinc-500">
+                <p className="text-[11px] text-zinc-400">
                   FLEET_ALERT_WEBHOOK env is set — it rides along automatically.
                 </p>
               )}
@@ -384,7 +384,7 @@ export function AlertsCard() {
                   >
                     <div className="min-w-0">
                       <p className="text-xs font-medium text-zinc-200">{KIND_META[kind].label}</p>
-                      <p className="truncate text-[11px] text-zinc-500">{KIND_META[kind].hint}</p>
+                      <p className="truncate text-[11px] text-zinc-400">{KIND_META[kind].hint}</p>
                     </div>
                     <Switch
                       checked={data.events[kind]}
@@ -398,7 +398,7 @@ export function AlertsCard() {
                 <div className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-zinc-950/40 px-3 py-2.5">
                   <div>
                     <p className="text-xs font-medium text-zinc-200">Repeat cooldown</p>
-                    <p className="text-[11px] text-zinc-500">min gap between same-kind alerts</p>
+                    <p className="text-[11px] text-zinc-400">min gap between same-kind alerts</p>
                   </div>
                   <div className="flex gap-1">
                     {[5, 10, 30, 60].map((m) => (
@@ -409,7 +409,7 @@ export function AlertsCard() {
                         className={`rounded-lg px-2 py-1 text-[11px] font-medium transition-colors ${
                           data.cooldownMin === m
                             ? "bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30"
-                            : "text-zinc-500 hover:bg-white/5 hover:text-zinc-300"
+                            : "text-zinc-400 hover:bg-white/5 hover:text-zinc-300"
                         }`}
                       >
                         {m}m
@@ -422,9 +422,9 @@ export function AlertsCard() {
 
             {/* delivery log */}
             <div className="space-y-2">
-              <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">Delivery log</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-zinc-400">Delivery log</p>
               {data.log.length === 0 ? (
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-zinc-400">
                   Nothing sent yet — alerts land here with their delivery status.
                 </p>
               ) : (
@@ -448,7 +448,7 @@ export function AlertsCard() {
                         <span className="text-zinc-300">{row.channelLabel}</span>
                         {!row.ok && ` — ${row.detail}`}
                       </span>
-                      <span className="shrink-0 text-[11px] text-zinc-600">{relativeTime(row.t)}</span>
+                      <span className="shrink-0 text-[11px] text-zinc-400">{relativeTime(row.t)}</span>
                     </div>
                   ))}
                 </div>

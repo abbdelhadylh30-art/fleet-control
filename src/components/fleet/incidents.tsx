@@ -72,7 +72,7 @@ export function RecentIncidents({
 }) {
   if (!recent?.length) return null;
   return (
-    <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-500">
+    <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-400">
       <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500/70" />
       <span className="font-medium text-zinc-400">Resolved:</span>
       {recent.slice(0, 4).map((i) => (
@@ -88,7 +88,7 @@ export function RecentIncidents({
               {i.severity}
             </span>
           ) : null}
-          <span className="text-zinc-500">
+          <span className="text-zinc-400">
             back {i.recoveredAt ? relativeTime(i.recoveredAt) : "—"}
           </span>
         </span>

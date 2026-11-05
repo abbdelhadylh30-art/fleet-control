@@ -139,7 +139,7 @@ export function SelfOpsPanel() {
               {status?.project ?? "…"}
             </Badge>
           </h2>
-          <p className="mt-1 text-[11px] text-zinc-600">
+          <p className="mt-1 text-[11px] text-zinc-400">
             The dashboard watches its own production deployment — and can heal it.
           </p>
         </div>
@@ -174,7 +174,7 @@ export function SelfOpsPanel() {
             disabled={refreshing}
             onClick={() => void load(true)}
             aria-label="Refresh self-ops status"
-            className="h-8 w-8 p-0 text-zinc-500 hover:bg-white/5 hover:text-emerald-300"
+            className="h-8 w-8 p-0 text-zinc-400 hover:bg-white/5 hover:text-emerald-300"
           >
             {refreshing ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -188,11 +188,11 @@ export function SelfOpsPanel() {
       <div className="grid gap-px bg-white/5 sm:grid-cols-3">
         {/* latest production deploy */}
         <div className="bg-zinc-900/60 p-5">
-          <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-zinc-600">
+          <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-zinc-400">
             <Rocket className="h-3 w-3" /> Latest production deploy
           </p>
           {loading ? (
-            <div className="mt-3 flex items-center gap-2 text-sm text-zinc-500">
+            <div className="mt-3 flex items-center gap-2 text-sm text-zinc-400">
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> checking…
             </div>
           ) : status?.latest ? (
@@ -202,11 +202,11 @@ export function SelfOpsPanel() {
                 <span className="text-sm font-semibold text-zinc-200">
                   {status.latest.readyState}
                 </span>
-                <span className="text-[11px] tabular-nums text-zinc-600">
+                <span className="text-[11px] tabular-nums text-zinc-400">
                   {relativeTime(status.latest.createdAt)}
                 </span>
               </div>
-              <div className="flex items-center gap-2 text-[11px] text-zinc-500">
+              <div className="flex items-center gap-2 text-[11px] text-zinc-400">
                 {status.latest.sha && (
                   <code className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400">
                     {status.latest.sha}
@@ -226,7 +226,7 @@ export function SelfOpsPanel() {
               </div>
             </div>
           ) : (
-            <p className="mt-3 text-xs leading-relaxed text-zinc-500">
+            <p className="mt-3 text-xs leading-relaxed text-zinc-400">
               {status?.latestError
                 ? "Vercel not connected — link it on the Integrations page to monitor deploys."
                 : "No production deployment found."}
@@ -236,11 +236,11 @@ export function SelfOpsPanel() {
 
         {/* persistence probe */}
         <div className="bg-zinc-900/60 p-5">
-          <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-zinc-600">
+          <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-zinc-400">
             <HardDrive className="h-3 w-3" /> Link persistence
           </p>
           {loading ? (
-            <div className="mt-3 flex items-center gap-2 text-sm text-zinc-500">
+            <div className="mt-3 flex items-center gap-2 text-sm text-zinc-400">
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> probing…
             </div>
           ) : status?.fsWritable ? (
@@ -248,7 +248,7 @@ export function SelfOpsPanel() {
               <div className="flex items-center gap-2 text-sm font-semibold text-emerald-300">
                 <CheckCircle2 className="h-4 w-4" /> Filesystem writable
               </div>
-              <p className="text-[11px] leading-relaxed text-zinc-500">
+              <p className="text-[11px] leading-relaxed text-zinc-400">
                 Minted agent links persist here — this instance stores sessions on disk.
               </p>
             </div>
@@ -257,7 +257,7 @@ export function SelfOpsPanel() {
               <div className="flex items-center gap-2 text-sm font-semibold text-amber-300">
                 <AlertTriangle className="h-4 w-4" /> Read-only filesystem
               </div>
-              <p className="text-[11px] leading-relaxed text-zinc-500">
+              <p className="text-[11px] leading-relaxed text-zinc-400">
                 UI-minted links vanish on cold start — mint, then hit{" "}
                 <span className="text-amber-300">Make permanent</span> to copy the key into
                 the deployment env.
@@ -268,11 +268,11 @@ export function SelfOpsPanel() {
 
         {/* env agent keys */}
         <div className="bg-zinc-900/60 p-5">
-          <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-zinc-600">
+          <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-zinc-400">
             <KeyRound className="h-3 w-3" /> Permanent agent keys
           </p>
           {loading ? (
-            <div className="mt-3 flex items-center gap-2 text-sm text-zinc-500">
+            <div className="mt-3 flex items-center gap-2 text-sm text-zinc-400">
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> reading…
             </div>
           ) : (
@@ -298,10 +298,10 @@ export function SelfOpsPanel() {
                     </span>
                   ))
                 ) : (
-                  <span className="text-xs text-zinc-600">none configured</span>
+                  <span className="text-xs text-zinc-400">none configured</span>
                 )}
               </div>
-              <p className="text-[11px] leading-relaxed text-zinc-500">
+              <p className="text-[11px] leading-relaxed text-zinc-400">
                 {connected
                   ? "Always-valid env links — survive cold starts; promoted links keep their minted scopes."
                   : ""}

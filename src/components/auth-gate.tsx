@@ -163,7 +163,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
                   <Radar className="h-3.5 w-3.5 text-emerald-400" />
                   Fleet Control
                 </h1>
-                <p className="mt-0.5 text-xs text-zinc-500">Management plane locked</p>
+                <p className="mt-0.5 text-xs text-zinc-400">Management plane locked</p>
               </div>
             </div>
 
@@ -195,14 +195,14 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
                   placeholder="enter the admin password"
                   autoComplete="current-password"
                   autoFocus
-                  className="h-11 border-white/10 bg-black/30 pr-12 font-mono text-sm text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-emerald-500/40"
+                  className="h-11 border-white/10 bg-black/30 pr-12 font-mono text-sm text-zinc-100 placeholder:text-zinc-400 focus-visible:ring-emerald-500/40"
                 />
                 {/* L1 (2026-09-21): 44px tap target — was a ~28px icon button */}
                 <button
                   type="button"
                   onClick={() => setShowPw((v) => !v)}
                   aria-label={showPw ? "Hide password" : "Show password"}
-                  className="absolute inset-y-0 right-0 grid w-11 place-items-center rounded-md text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
+                  className="absolute inset-y-0 right-0 grid w-11 place-items-center rounded-md text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
                 >
                   {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>

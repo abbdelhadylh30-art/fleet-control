@@ -332,13 +332,13 @@ export function AccessApprovalCard() {
         ) : (
           <Badge
             variant="outline"
-            className="ml-auto gap-1 border-white/10 bg-white/[0.03] px-2 py-0.5 text-[10px] text-zinc-500"
+            className="ml-auto gap-1 border-white/10 bg-white/[0.03] px-2 py-0.5 text-[10px] text-zinc-400"
           >
             <ShieldCheck className="h-3 w-3" /> nothing pending
           </Badge>
         )}
       </div>
-      <p className="mb-4 text-xs leading-relaxed text-zinc-500">
+      <p className="mb-4 text-xs leading-relaxed text-zinc-400">
         Generate a <span className="font-mono text-emerald-400">temp password</span>, hand it to
         your AI. It can only <span className="text-zinc-300">ask</span> — each request lands here
         with who&apos;s asking, and you approve or deny. Approved AIs work under a{" "}
@@ -357,7 +357,7 @@ export function AccessApprovalCard() {
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder="e.g. Claude on web · Z.ai agent"
-              className="h-9 border-white/10 bg-white/[0.03] text-xs text-zinc-200 placeholder:text-zinc-600"
+              className="h-9 border-white/10 bg-white/[0.03] text-xs text-zinc-200 placeholder:text-zinc-400"
               maxLength={60}
             />
           </div>
@@ -401,7 +401,7 @@ export function AccessApprovalCard() {
                     className={`rounded-full px-2.5 py-1 text-[10px] font-medium ring-1 transition-all ${
                       on
                         ? "bg-emerald-500/15 text-emerald-300 ring-emerald-500/30"
-                        : "bg-white/[0.02] text-zinc-500 ring-white/10 hover:text-zinc-300"
+                        : "bg-white/[0.02] text-zinc-400 ring-white/10 hover:text-zinc-300"
                     }`}
                   >
                     {on && <Check className="mr-1 inline h-2.5 w-2.5" />}
@@ -444,7 +444,7 @@ export function AccessApprovalCard() {
             {aiInstructions && (
               <div className="mt-3">
                 <div className="mb-1.5 flex items-center justify-between">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-400">
                     Paste this into the AI chat
                   </span>
                   <Button
@@ -467,17 +467,17 @@ export function AccessApprovalCard() {
 
       {/* live request queue */}
       <div className="mb-4">
-        <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+        <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
           <Fingerprint className="h-3.5 w-3.5 text-emerald-400" />
           Access requests
-          {loaded && <span className="ml-auto font-normal normal-case text-zinc-600">auto-refresh {hasPending ? "4s" : "8s"}</span>}
+          {loaded && <span className="ml-auto font-normal normal-case text-zinc-400">auto-refresh {hasPending ? "4s" : "8s"}</span>}
         </div>
         {!loaded ? (
-          <div className="flex items-center gap-2 rounded-xl border border-white/5 bg-black/20 p-4 text-xs text-zinc-500">
+          <div className="flex items-center gap-2 rounded-xl border border-white/5 bg-black/20 p-4 text-xs text-zinc-400">
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> loading requests…
           </div>
         ) : pending.length === 0 && activeSessions.length === 0 && history.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-white/10 bg-black/10 p-4 text-center text-[11px] text-zinc-600">
+          <div className="rounded-xl border border-dashed border-white/10 bg-black/10 p-4 text-center text-[11px] text-zinc-400">
             No requests yet — generate a temp password above and give it to your AI.
           </div>
         ) : (
@@ -493,7 +493,7 @@ export function AccessApprovalCard() {
                   <Badge variant="outline" className="gap-1 border-white/10 px-1.5 py-0 text-[9px] text-zinc-400">
                     <Clock className="h-2.5 w-2.5" /> decide within {until(r.expiresAt)}
                   </Badge>
-                  <span className="ml-auto text-[10px] text-zinc-600">{relTime(r.createdAt)}</span>
+                  <span className="ml-auto text-[10px] text-zinc-400">{relTime(r.createdAt)}</span>
                 </div>
                 {r.task && (
                   <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-300">
@@ -511,7 +511,7 @@ export function AccessApprovalCard() {
                       <button
                         type="button"
                         onClick={() => setRevealedUa(revealedUa === r.id ? null : r.id)}
-                        className="text-[10px] text-zinc-600 underline decoration-dotted hover:text-zinc-400"
+                        className="text-[10px] text-zinc-400 underline decoration-dotted hover:text-zinc-400"
                       >
                         {r.ip ? `from ${r.ip}` : "unknown ip"} · agent details
                       </button>
@@ -522,7 +522,7 @@ export function AccessApprovalCard() {
                   </Tooltip>
                 </div>
                 {revealedUa === r.id && (
-                  <p className="mt-1.5 break-all rounded-lg bg-black/30 p-2 font-mono text-[9px] leading-relaxed text-zinc-500">
+                  <p className="mt-1.5 break-all rounded-lg bg-black/30 p-2 font-mono text-[9px] leading-relaxed text-zinc-400">
                     {r.userAgent || "unknown user-agent"} · via {r.codeHint} · parent {r.parentHint}
                   </p>
                 )}
@@ -563,12 +563,12 @@ export function AccessApprovalCard() {
                   <Badge variant="outline" className="gap-1 border-white/10 px-1.5 py-0 text-[9px] text-zinc-400">
                     <Clock className="h-2.5 w-2.5" /> {until(r.sessionExpiresAt)}
                   </Badge>
-                  <span className="ml-auto text-[10px] text-zinc-600">via {r.codeHint}</span>
+                  <span className="ml-auto text-[10px] text-zinc-400">via {r.codeHint}</span>
                 </div>
                 {r.task && <p className="mt-1.5 text-[11px] text-zinc-400">task: {r.task}</p>}
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {r.scopes.map((s) => (
-                    <Badge key={s} variant="outline" className="px-1.5 py-0 text-[9px] text-zinc-500">
+                    <Badge key={s} variant="outline" className="px-1.5 py-0 text-[9px] text-zinc-400">
                       {SCOPE_META[s]?.label ?? s}
                     </Badge>
                   ))}
@@ -592,15 +592,15 @@ export function AccessApprovalCard() {
                   className={`px-1.5 py-0 text-[9px] ${
                     r.status === "denied"
                       ? "border-rose-500/25 bg-rose-500/10 text-rose-300"
-                      : "border-white/10 bg-white/[0.03] text-zinc-500"
+                      : "border-white/10 bg-white/[0.03] text-zinc-400"
                   }`}
                 >
                   {r.status === "denied" ? <Ban className="h-2.5 w-2.5" /> : <Clock className="h-2.5 w-2.5" />}
                   {r.status}
                 </Badge>
                 <span className="text-[11px] text-zinc-400">{r.clientName}</span>
-                {r.task && <span className="truncate text-[10px] text-zinc-600">· {r.task}</span>}
-                <span className="ml-auto text-[10px] text-zinc-600">{relTime(r.createdAt)}</span>
+                {r.task && <span className="truncate text-[10px] text-zinc-400">· {r.task}</span>}
+                <span className="ml-auto text-[10px] text-zinc-400">{relTime(r.createdAt)}</span>
               </div>
             ))}
           </div>
@@ -609,12 +609,12 @@ export function AccessApprovalCard() {
 
       {/* live activity — what is the AI doing right now */}
       <div>
-        <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+        <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
           <Activity className="h-3.5 w-3.5 text-emerald-400" />
           Live activity — what agents are doing
         </div>
         {activity.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-white/10 bg-black/10 p-3 text-center text-[10px] text-zinc-600">
+          <div className="rounded-xl border border-dashed border-white/10 bg-black/10 p-3 text-center text-[10px] text-zinc-400">
             No agent calls yet.
           </div>
         ) : (
@@ -630,8 +630,8 @@ export function AccessApprovalCard() {
                   }`}
                 />
                 <span className="truncate text-[10px] font-medium text-zinc-300">{a.label}</span>
-                <span className="truncate font-mono text-[10px] text-zinc-500">{a.op}</span>
-                <span className="ml-auto shrink-0 text-[9px] text-zinc-600">{relTime(a.t)}</span>
+                <span className="truncate font-mono text-[10px] text-zinc-400">{a.op}</span>
+                <span className="ml-auto shrink-0 text-[9px] text-zinc-400">{relTime(a.t)}</span>
               </div>
             ))}
           </div>
@@ -641,7 +641,7 @@ export function AccessApprovalCard() {
       {/* active codes */}
       {activeCodes.length > 0 && (
         <div className="mt-4 border-t border-white/5 pt-3">
-          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
             Active temp passwords
           </div>
           <div className="space-y-1.5">
@@ -649,10 +649,10 @@ export function AccessApprovalCard() {
               <div key={c.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-white/[0.02] px-2.5 py-1.5">
                 <code className="font-mono text-[10px] text-emerald-400/90">{c.codeHint}</code>
                 <span className="text-[10px] text-zinc-400">{c.label}</span>
-                <Badge variant="outline" className="px-1.5 py-0 text-[9px] text-zinc-500">
+                <Badge variant="outline" className="px-1.5 py-0 text-[9px] text-zinc-400">
                   {c.useCount} use{c.useCount === 1 ? "" : "s"}
                 </Badge>
-                <span className="ml-auto text-[9px] text-zinc-600">{until(c.expiresAt)}</span>
+                <span className="ml-auto text-[9px] text-zinc-400">{until(c.expiresAt)}</span>
                 <button
                   type="button"
                   onClick={() => void revokeCode(c.id)}

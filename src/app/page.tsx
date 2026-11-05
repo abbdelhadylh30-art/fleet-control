@@ -395,7 +395,7 @@ export default function Home() {
                   </span>
                 ) : null}
               </h1>
-              <p className="truncate text-[11px] text-zinc-500">
+              <p className="truncate text-[11px] text-zinc-400">
                 abdelhadygabriel.me · {data?.summary.total ?? FLEET.length} sites · IndexNow pipeline
               </p>
             </div>
@@ -419,7 +419,7 @@ export default function Home() {
                   aria-label="Auto refresh interval"
                   className="h-8 w-[4.7rem] gap-1 border-white/10 bg-white/[0.03] px-2.5 text-[11px] text-zinc-300 focus-visible:ring-emerald-500/40 data-[disabled]:opacity-50"
                 >
-                  <Timer className="h-3 w-3 text-zinc-500" />
+                  <Timer className="h-3 w-3 text-zinc-400" />
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="border-white/10 bg-zinc-900 text-zinc-200">
@@ -528,7 +528,7 @@ export default function Home() {
                       <Link2 className="h-3.5 w-3.5 text-emerald-400" />
                       Canonical tag coverage
                     </span>
-                    <span className="tabular-nums text-zinc-500">
+                    <span className="tabular-nums text-zinc-400">
                       {canonicalCount}/{sites.length}
                     </span>
                   </div>
@@ -543,7 +543,7 @@ export default function Home() {
                       <ExternalLink className="h-3.5 w-3.5 text-emerald-400" />
                       OpenGraph coverage
                     </span>
-                    <span className="tabular-nums text-zinc-500">
+                    <span className="tabular-nums text-zinc-400">
                       {ogCount}/{sites.length}
                     </span>
                   </div>
@@ -558,7 +558,7 @@ export default function Home() {
                     <div className="text-xs font-medium text-zinc-300">
                       Fleet avg score
                     </div>
-                    <div className="text-[10px] text-zinc-500">
+                    <div className="text-[10px] text-zinc-400">
                       weighted audit · live sites
                     </div>
                     <FleetTrend trend={data?.trend ?? []} />
@@ -620,14 +620,14 @@ export default function Home() {
               <Globe className="h-4 w-4 text-emerald-400" />
               Fleet sites
               {!loading ? (
-                <span className="text-zinc-600 normal-case">
+                <span className="text-zinc-400 normal-case">
                   ({filtered.length})
                 </span>
               ) : null}
             </h2>
             <div className="flex flex-wrap items-center gap-2">
               {data ? (
-                <span className="text-[11px] text-zinc-600">
+                <span className="text-[11px] text-zinc-400">
                   checked {relativeTime(data.checkedAt)}
                   {data.cached ? " · cached" : ""}
                 </span>
@@ -657,7 +657,7 @@ export default function Home() {
                   >
                     {g === "all" ? "All sites" : g}
                     <span
-                      className={`ml-1.5 tabular-nums ${active ? "text-emerald-400/70" : "text-zinc-600"}`}
+                      className={`ml-1.5 tabular-nums ${active ? "text-emerald-400/70" : "text-zinc-400"}`}
                     >
                       {count}
                     </span>
@@ -672,7 +672,7 @@ export default function Home() {
                   aria-label="Sort sites"
                   className="h-9 w-[9.5rem] border-white/10 bg-white/[0.03] text-xs text-zinc-300 focus-visible:ring-emerald-500/40"
                 >
-                  <ArrowDownWideNarrow className="h-3.5 w-3.5 text-zinc-500" />
+                  <ArrowDownWideNarrow className="h-3.5 w-3.5 text-zinc-400" />
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="border-white/10 bg-zinc-900 text-zinc-200">
@@ -703,7 +703,7 @@ export default function Home() {
                   align="end"
                   className="border-white/10 bg-zinc-900 text-zinc-200"
                 >
-                  <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-zinc-500">
+                  <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-zinc-400">
                     Fleet report
                   </DropdownMenuLabel>
                   <DropdownMenuItem
@@ -729,14 +729,14 @@ export default function Home() {
               </DropdownMenu>
               {/* search */}
               <div className="relative w-full sm:w-56">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
                 <Input
                   ref={searchRef}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search sites, repos, hosts… ( / )"
                   aria-label="Search sites, repos and hosts"
-                  className="h-9 border-white/10 bg-white/[0.03] pl-9 text-xs text-zinc-200 placeholder:text-zinc-600 focus-visible:ring-emerald-500/40"
+                  className="h-9 border-white/10 bg-white/[0.03] pl-9 text-xs text-zinc-200 placeholder:text-zinc-400 focus-visible:ring-emerald-500/40"
                 />
               </div>
             </div>
@@ -769,8 +769,8 @@ export default function Home() {
           </div>
           {!loading && filtered.length === 0 ? (
             <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-white/10 py-12 text-center">
-              <Search className="h-6 w-6 text-zinc-700" />
-              <p className="text-sm text-zinc-500">
+              <Search className="h-6 w-6 text-zinc-500" />
+              <p className="text-sm text-zinc-400">
                 No sites match “{query}”
               </p>
               <Button

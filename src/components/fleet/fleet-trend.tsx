@@ -57,7 +57,7 @@ export function FleetTrend({ trend }: { trend: FleetResponse["trend"] }) {
             strokeLinecap="round"
           />
         </svg>
-        <span className="whitespace-nowrap text-[9px] text-zinc-600">
+        <span className="whitespace-nowrap text-[9px] text-zinc-400">
           trend builds with each hourly rollup
         </span>
       </div>,

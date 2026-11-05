@@ -59,7 +59,7 @@ export function StatCard({
                 )}
               </div>
               <div className="truncate text-xs text-zinc-400">
-                {label} · <span className="text-zinc-500">{sub}</span>
+                {label} · <span className="text-zinc-400">{sub}</span>
               </div>
             </>
           )}

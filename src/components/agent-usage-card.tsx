@@ -80,7 +80,7 @@ export function AgentUsageCard() {
             <Bot className="h-4 w-4 text-emerald-400" />
             Agent usage
           </h2>
-          <p className="mt-1 text-[11px] text-zinc-600">
+          <p className="mt-1 text-[11px] text-zinc-400">
             <span className="tabular-nums text-zinc-400">{total}</span> proxied calls in the
             last {DAYS} days ·{" "}
             <span className="tabular-nums text-emerald-400">{okRate}%</span> ok
@@ -92,7 +92,7 @@ export function AgentUsageCard() {
           disabled={refreshing}
           onClick={() => void load(true)}
           aria-label="Refresh agent usage"
-          className="h-8 w-8 p-0 text-zinc-500 hover:bg-white/5 hover:text-emerald-300"
+          className="h-8 w-8 p-0 text-zinc-400 hover:bg-white/5 hover:text-emerald-300"
         >
           {refreshing ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -106,11 +106,11 @@ export function AgentUsageCard() {
         {/* 14-day bars */}
         <div>
           {loading ? (
-            <div className="flex h-20 items-center gap-2 text-sm text-zinc-500">
+            <div className="flex h-20 items-center gap-2 text-sm text-zinc-400">
               <Loader2 className="h-4 w-4 animate-spin" /> loading usage…
             </div>
           ) : total === 0 ? (
-            <p className="flex h-20 items-center text-xs leading-relaxed text-zinc-600">
+            <p className="flex h-20 items-center text-xs leading-relaxed text-zinc-400">
               No proxied calls yet — paste an agent link in the chat and the AI&apos;s GitHub /
               Vercel calls will chart here.
             </p>
@@ -134,18 +134,18 @@ export function AgentUsageCard() {
               ))}
             </div>
           )}
-          <p className="mt-2 text-[10px] text-zinc-700">
+          <p className="mt-2 text-[10px] text-zinc-500">
             {days[0]?.date} → {days[days.length - 1]?.date} (UTC)
           </p>
         </div>
 
         {/* top links */}
         <div className="min-w-40 space-y-2 sm:border-l sm:border-white/5 sm:pl-5">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-600">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-400">
             Busiest links
           </p>
           {!loading && topLinks.length === 0 ? (
-            <p className="text-xs text-zinc-600">—</p>
+            <p className="text-xs text-zinc-400">—</p>
           ) : (
             topLinks.map((l) => (
               <div key={l.label} className="flex items-center justify-between gap-3 text-xs">

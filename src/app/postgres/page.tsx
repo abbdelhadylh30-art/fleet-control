@@ -102,12 +102,12 @@ function Kpi({
         <span className={`flex h-7 w-7 items-center justify-center rounded-lg ring-1 ${toneMap[tone]}`}>
           {icon}
         </span>
-        <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+        <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-400">
           {label}
         </span>
       </div>
       <div className="mt-2 text-2xl font-semibold tracking-tight text-zinc-100">{value}</div>
-      {sub ? <div className="mt-0.5 text-[10px] text-zinc-600">{sub}</div> : null}
+      {sub ? <div className="mt-0.5 text-[10px] text-zinc-400">{sub}</div> : null}
     </Card>
   );
 }
@@ -154,14 +154,14 @@ function StepRow({
         </button>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-[10px] text-zinc-600">{String(index + 1).padStart(2, "0")}</span>
+            <span className="font-mono text-[10px] text-zinc-400">{String(index + 1).padStart(2, "0")}</span>
             <span
               className={`text-xs font-medium ${done ? "text-emerald-200/80 line-through decoration-emerald-500/40" : "text-zinc-200"}`}
             >
               {step.title}
             </span>
           </div>
-          <p className="mt-0.5 text-[11px] leading-relaxed text-zinc-500">{step.detail}</p>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-zinc-400">{step.detail}</p>
         </div>
         <button
           type="button"
@@ -172,7 +172,7 @@ function StepRow({
           className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition-colors ${
             snippetOpen
               ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-              : "border-white/10 bg-white/5 text-zinc-500 hover:text-zinc-300"
+              : "border-white/10 bg-white/5 text-zinc-400 hover:text-zinc-300"
           }`}
         >
           <Code2 className="h-3 w-3" />
@@ -181,7 +181,7 @@ function StepRow({
       {snippetOpen && (
         <div className="mt-2 overflow-hidden rounded-lg border border-white/10 bg-black/40">
           <div className="flex items-center justify-between border-b border-white/5 px-2.5 py-1">
-            <span className="font-mono text-[9px] uppercase tracking-wider text-zinc-600">
+            <span className="font-mono text-[9px] uppercase tracking-wider text-zinc-400">
               snippet · step {index + 1}
             </span>
             <button
@@ -239,7 +239,7 @@ function AppSpace({
           {PRIORITY_LABEL[app.priority]}
         </Badge>
         {app.hosts.map((h) => (
-          <span key={h} className="hidden font-mono text-[10px] text-zinc-600 sm:inline">
+          <span key={h} className="hidden font-mono text-[10px] text-zinc-400 sm:inline">
             {h}
           </span>
         ))}
@@ -253,12 +253,12 @@ function AppSpace({
                 style={{ width: `${pct}%` }}
               />
             </span>
-            <span className="font-mono text-[10px] text-zinc-500">
+            <span className="font-mono text-[10px] text-zinc-400">
               {doneCount}/{STEP_COUNT}
             </span>
           </span>
           <ChevronDown
-            className={`h-4 w-4 text-zinc-500 transition-transform duration-300 ${expanded ? "rotate-180" : ""}`}
+            className={`h-4 w-4 text-zinc-400 transition-transform duration-300 ${expanded ? "rotate-180" : ""}`}
           />
         </span>
       </button>
@@ -282,32 +282,32 @@ function AppSpace({
                   </li>
                 ))}
                 {app.reasons.length === 0 && (
-                  <li className="text-[11px] text-zinc-500">No state stores detected in the repo tree.</li>
+                  <li className="text-[11px] text-zinc-400">No state stores detected in the repo tree.</li>
                 )}
               </ul>
               <p className="rounded-lg border border-white/5 bg-white/[0.02] p-2.5 text-[11px] leading-relaxed text-zinc-400">
-                <Info className="mr-1 inline h-3 w-3 text-zinc-500" />
+                <Info className="mr-1 inline h-3 w-3 text-zinc-400" />
                 {app.fixSummary}
               </p>
               <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 pt-1 text-[10px]">
                 <div className="flex justify-between gap-2 sm:col-span-1">
-                  <dt className="text-zinc-600">framework</dt>
+                  <dt className="text-zinc-400">framework</dt>
                   <dd className="truncate font-mono text-zinc-400">{app.framework ?? app.language ?? "—"}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <dt className="text-zinc-600">api routes</dt>
+                  <dt className="text-zinc-400">api routes</dt>
                   <dd className="font-mono text-zinc-400">{app.apiRoutes}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <dt className="text-zinc-600">branch</dt>
+                  <dt className="text-zinc-400">branch</dt>
                   <dd className="font-mono text-zinc-400">{app.branch}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <dt className="text-zinc-600">last push</dt>
+                  <dt className="text-zinc-400">last push</dt>
                   <dd className="font-mono text-zinc-400">{relativeTime(app.pushedAt)}</dd>
                 </div>
                 <div className="flex justify-between gap-2 sm:col-span-2">
-                  <dt className="text-zinc-600">vercel project</dt>
+                  <dt className="text-zinc-400">vercel project</dt>
                   <dd className="truncate font-mono text-zinc-400">{app.vercelProject ?? "—"}</dd>
                 </div>
               </dl>
@@ -315,7 +315,7 @@ function AppSpace({
                 href={`https://github.com/${owner}/${app.repo}`}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 text-[10px] text-zinc-500 transition-colors hover:text-zinc-300"
+                className="inline-flex items-center gap-1 text-[10px] text-zinc-400 transition-colors hover:text-zinc-300"
               >
                 <ExternalLink className="h-2.5 w-2.5" /> open repo
               </a>
@@ -333,7 +333,7 @@ function AppSpace({
                 <button
                   type="button"
                   onClick={onReset}
-                  className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-zinc-600 transition-colors hover:bg-white/5 hover:text-zinc-400"
+                  className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-400"
                   title="Clear this app's progress"
                 >
                   <RotateCcw className="h-2.5 w-2.5" /> reset
@@ -367,11 +367,11 @@ function CompactApp({ app }: { app: PgAppAudit }) {
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
         <span className="font-mono text-xs font-medium text-zinc-200">{app.repo}</span>
-        <span className="text-[10px] text-zinc-600">
+        <span className="text-[10px] text-zinc-400">
           {app.reasons[0] ?? VERDICT_LABEL[app.verdict]}
         </span>
         {app.hosts.length > 0 && (
-          <span className="ml-auto hidden font-mono text-[10px] text-zinc-600 sm:inline">
+          <span className="ml-auto hidden font-mono text-[10px] text-zinc-400 sm:inline">
             {app.hosts[0]}
           </span>
         )}
@@ -497,7 +497,7 @@ export default function PostgresPage() {
               <Database className="h-5 w-5 text-emerald-400" />
               Postgres Readiness
             </h1>
-            <p className="mt-1 text-xs text-zinc-500">
+            <p className="mt-1 text-xs text-zinc-400">
               {baseline
                 ? `Audited ${relativeTime(baseline.scannedAt)} · ${summary?.total ?? 0} repos · ${baseline.owner}`
                 : "Loading the fleet audit…"}
@@ -586,7 +586,7 @@ export default function PostgresPage() {
             {/* fleet-wide progress bar */}
             {summary.stepsTotal > 0 && (
               <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
-                <div className="mb-2 flex items-center justify-between text-[10px] text-zinc-500">
+                <div className="mb-2 flex items-center justify-between text-[10px] text-zinc-400">
                   <span className="font-semibold uppercase tracking-wider">Fleet migration progress</span>
                   <span className="font-mono">
                     {summary.stepsDone}/{summary.stepsTotal} steps · {progressPct}%
@@ -609,7 +609,7 @@ export default function PostgresPage() {
                 <Badge variant="outline" className="text-[9px] border-rose-500/30 bg-rose-500/10 text-rose-300">
                   {needs.length}
                 </Badge>
-                <span className="text-[10px] font-normal text-zinc-600">
+                <span className="text-[10px] font-normal text-zinc-400">
                   click an app to open its migration space
                 </span>
               </h2>
@@ -634,7 +634,7 @@ export default function PostgresPage() {
                   );
                 })}
                 {needs.length === 0 && (
-                  <p className="rounded-xl border border-white/5 bg-white/[0.02] p-4 text-xs text-zinc-500">
+                  <p className="rounded-xl border border-white/5 bg-white/[0.02] p-4 text-xs text-zinc-400">
                     No migration needed — the fleet is Postgres-ready.
                   </p>
                 )}
@@ -678,8 +678,8 @@ export default function PostgresPage() {
             )}
 
             {/* honest persistence note */}
-            <p className="flex items-start gap-2 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-[11px] leading-relaxed text-zinc-500">
-              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-600" />
+            <p className="flex items-start gap-2 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-[11px] leading-relaxed text-zinc-400">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-400" />
               Step progress for this dashboard is stored in its own Neon Postgres (first app in the
               list) — it now survives cold starts. The other apps keep ephemeral file state until their
               own migration runs; the audit verdicts persist either way via the committed baseline.
@@ -687,7 +687,7 @@ export default function PostgresPage() {
           </>
         ) : (
           <Card className="border-white/5 bg-white/[0.02]">
-            <CardContent className="p-6 text-center text-xs text-zinc-500">
+            <CardContent className="p-6 text-center text-xs text-zinc-400">
               Audit unavailable — the baseline file is missing and the re-scan needs GitHub connected.
             </CardContent>
           </Card>

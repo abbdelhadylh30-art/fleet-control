@@ -140,7 +140,7 @@ export function DeployWatchCard() {
               <h2 className="text-sm font-semibold tracking-tight text-zinc-100">
                 Deploy-triggered resubmission
               </h2>
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-zinc-400">
                 Every new production deploy re-feeds IndexNow + Google automatically.
               </p>
             </div>
@@ -168,7 +168,7 @@ export function DeployWatchCard() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-8 text-sm text-zinc-500">
+          <div className="flex items-center justify-center gap-2 py-8 text-sm text-zinc-400">
             <Loader2 className="h-4 w-4 animate-spin" /> loading watch state…
           </div>
         ) : !data ? (
@@ -186,24 +186,24 @@ export function DeployWatchCard() {
             {/* state strip */}
             <div className="grid grid-cols-3 gap-2">
               <div className="rounded-xl border border-white/5 bg-zinc-950/40 p-3">
-                <p className="text-[11px] uppercase tracking-wider text-zinc-500">Last watch</p>
+                <p className="text-[11px] uppercase tracking-wider text-zinc-400">Last watch</p>
                 <p className="mt-1 text-sm font-semibold text-zinc-200">
                   {relativeTime(data.state.lastRun)}
                 </p>
               </div>
               <div className="rounded-xl border border-white/5 bg-zinc-950/40 p-3">
-                <p className="text-[11px] uppercase tracking-wider text-zinc-500">Deploys tracked</p>
+                <p className="text-[11px] uppercase tracking-wider text-zinc-400">Deploys tracked</p>
                 <p className="mt-1 text-sm font-semibold text-zinc-200">{data.state.seenCount}</p>
               </div>
               <div className="rounded-xl border border-white/5 bg-zinc-950/40 p-3">
-                <p className="text-[11px] uppercase tracking-wider text-zinc-500">Resubmissions</p>
+                <p className="text-[11px] uppercase tracking-wider text-zinc-400">Resubmissions</p>
                 <p className="mt-1 text-sm font-semibold text-zinc-200">{data.log.length}</p>
               </div>
             </div>
 
             {/* log */}
             {data.log.length === 0 ? (
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-zinc-400">
                 Nothing resubmitted yet — ship a deploy on any fleet site (or press Run now) and the
                 outcome lands here.
               </p>
@@ -214,15 +214,15 @@ export function DeployWatchCard() {
                     key={`${e.deployment}-${i}`}
                     className="flex flex-wrap items-center gap-2 rounded-xl border border-white/5 bg-zinc-950/40 px-3 py-2.5"
                   >
-                    <GitCommitHorizontal className="h-3.5 w-3.5 shrink-0 text-zinc-600" />
+                    <GitCommitHorizontal className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-xs font-medium text-zinc-200">
                         {e.host}
                         {e.commitSha && (
-                          <span className="ml-1.5 font-mono text-[10px] text-zinc-500">{e.commitSha}</span>
+                          <span className="ml-1.5 font-mono text-[10px] text-zinc-400">{e.commitSha}</span>
                         )}
                       </p>
-                      <p className="truncate text-[11px] text-zinc-500">
+                      <p className="truncate text-[11px] text-zinc-400">
                         {e.project} · {relativeTime(e.t)}
                       </p>
                     </div>
@@ -247,8 +247,8 @@ export function DeployWatchCard() {
               </div>
             )}
 
-            <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-600">
-              <Badge variant="outline" className="border-white/10 text-zinc-500">
+            <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-400">
+              <Badge variant="outline" className="border-white/10 text-zinc-400">
                 auto
               </Badge>
               runs with every fresh fleet check (90s throttle) · failed deploys ping your alert

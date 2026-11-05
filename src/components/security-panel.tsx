@@ -118,7 +118,7 @@ export function SecurityPanel() {
               </Badge>
             )}
           </h2>
-          <p className="mt-1 text-[11px] text-zinc-600">
+          <p className="mt-1 text-[11px] text-zinc-400">
             Auth failures, rate limits, blocked paths, challenge-confirmed ops.
           </p>
         </div>
@@ -128,7 +128,7 @@ export function SecurityPanel() {
           disabled={refreshing}
           onClick={() => void load(true)}
           aria-label="Refresh security log"
-          className="h-8 w-8 p-0 text-zinc-500 hover:bg-white/5 hover:text-emerald-300"
+          className="h-8 w-8 p-0 text-zinc-400 hover:bg-white/5 hover:text-emerald-300"
         >
           {refreshing ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -140,11 +140,11 @@ export function SecurityPanel() {
 
       <div className="max-h-96 overflow-y-auto p-5 [scrollbar-color:rgba(255,255,255,0.12)_transparent] [scrollbar-width:thin]">
         {events === null ? (
-          <div className="flex items-center gap-2 py-6 text-sm text-zinc-500">
+          <div className="flex items-center gap-2 py-6 text-sm text-zinc-400">
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> loading events…
           </div>
         ) : events.length === 0 ? (
-          <p className="py-6 text-xs leading-relaxed text-zinc-500">
+          <p className="py-6 text-xs leading-relaxed text-zinc-400">
             No security events on this warm instance yet — failed key attempts,
             rate-limit hits and challenge-confirmed actions will appear here.
             The durable copy lives in the platform logs (console.warn).
@@ -170,21 +170,21 @@ export function SecurityPanel() {
                       <code className="text-[11px] font-semibold text-zinc-200">
                         {e.kind}
                       </code>
-                      <span className="text-[10px] tabular-nums text-zinc-600">
+                      <span className="text-[10px] tabular-nums text-zinc-400">
                         {relativeTime(e.t)}
                       </span>
                       <span
                         title={e.ip}
-                        className="rounded bg-white/5 px-1 py-px font-mono text-[9px] text-zinc-500"
+                        className="rounded bg-white/5 px-1 py-px font-mono text-[9px] text-zinc-400"
                       >
                         {e.ip}
                       </span>
-                      <span className="flex items-center gap-0.5 text-[9px] text-zinc-600">
+                      <span className="flex items-center gap-0.5 text-[9px] text-zinc-400">
                         <Eye className="h-2.5 w-2.5" />
                         {formatUa(e.ua)}
                       </span>
                     </div>
-                    <p className="mt-0.5 break-words text-[11px] leading-relaxed text-zinc-500">
+                    <p className="mt-0.5 break-words text-[11px] leading-relaxed text-zinc-400">
                       {e.detail}
                     </p>
                   </div>

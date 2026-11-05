@@ -74,7 +74,7 @@ function PerfList({
 }) {
   if (rows.length === 0) {
     return (
-      <p className="py-6 text-center text-[11px] text-zinc-600">
+      <p className="py-6 text-center text-[11px] text-zinc-400">
         nothing in this bucket yet — Google hasn&apos;t served{" "}
         {kind === "page" ? "any fleet page" : "any query"} in the window
       </p>
@@ -102,12 +102,12 @@ function PerfList({
               <span className="min-w-0 flex-1 truncate text-[11px] text-zinc-300">{r.key}</span>
             )}
             {kind === "page" ? (
-              <ExternalLink className="h-2.5 w-2.5 shrink-0 text-zinc-600 opacity-0 transition-opacity group-hover:opacity-100" />
+              <ExternalLink className="h-2.5 w-2.5 shrink-0 text-zinc-400 opacity-0 transition-opacity group-hover:opacity-100" />
             ) : (
-              <Search className="h-2.5 w-2.5 shrink-0 text-zinc-700" />
+              <Search className="h-2.5 w-2.5 shrink-0 text-zinc-500" />
             )}
           </div>
-          <div className="mt-1 flex items-center gap-3 text-[10px] tabular-nums text-zinc-500">
+          <div className="mt-1 flex items-center gap-3 text-[10px] tabular-nums text-zinc-400">
             <span className="text-emerald-400/90">{r.clicks} clicks</span>
             <span>{r.impressions} impr.</span>
             <span>{fmtPct(r.ctr)} CTR</span>
@@ -208,7 +208,7 @@ export function GscPerformancePanel() {
             </p>
           </div>
         ) : state !== "ready" || !data ? (
-          <div className="flex items-center justify-center gap-2 py-12 text-sm text-zinc-500">
+          <div className="flex items-center justify-center gap-2 py-12 text-sm text-zinc-400">
             <Loader2 className="h-4 w-4 animate-spin" /> asking Google for the last 28 days…
           </div>
         ) : (
@@ -250,13 +250,13 @@ export function GscPerformancePanel() {
 
             <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
               <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3.5">
-                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
                   Top pages · click to inspect
                 </h3>
                 <PerfList rows={data.pages ?? []} kind="page" />
               </div>
               <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3.5">
-                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
                   Top search queries
                 </h3>
                 <PerfList rows={data.queries ?? []} kind="query" />

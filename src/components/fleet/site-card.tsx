@@ -100,7 +100,7 @@ export function SiteCard({
             href={`https://${site.host}`}
             target="_blank"
             rel="noreferrer"
-            className="mt-0.5 inline-flex items-center gap-0.5 font-mono text-xs text-zinc-500 transition-colors hover:text-emerald-400"
+            className="mt-0.5 inline-flex items-center gap-0.5 font-mono text-xs text-zinc-400 transition-colors hover:text-emerald-400"
           >
             {site.host}
             <ArrowUpRight className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
@@ -123,7 +123,7 @@ export function SiteCard({
               className="border border-white/10 bg-zinc-900 text-zinc-200"
             >
               <span className="font-semibold">SEO score {score}/100</span>
-              <span className="text-zinc-500"> · click for full audit</span>
+              <span className="text-zinc-400"> · click for full audit</span>
             </TooltipContent>
           </Tooltip>
         </div>
@@ -186,7 +186,7 @@ export function SiteCard({
         ) : null}
 
         {site.repoInfo?.pushedAt ? (
-          <p className="text-[11px] text-zinc-600">
+          <p className="text-[11px] text-zinc-400">
             repo <span className="font-mono">{site.repo}</span> pushed{" "}
             {relativeTime(site.repoInfo.pushedAt)}
             {site.repoInfo.isPrivate ? " · private 🔒" : ""}
@@ -276,7 +276,7 @@ function UptimeBars({ uptime }: { uptime: SiteUptime }) {
           role="img"
           aria-label={label}
         >
-          <HeartPulse className="h-3 w-3 text-zinc-600" />
+          <HeartPulse className="h-3 w-3 text-zinc-400" />
           <span className="flex items-center gap-[2px]">
             {bars.length > 0 ? (
               bars.map((ok, i) => (
@@ -294,7 +294,7 @@ function UptimeBars({ uptime }: { uptime: SiteUptime }) {
               <span className="h-[7px] w-[3px] rounded-[1px] bg-white/10" />
             )}
           </span>
-          <span className="text-[10px] tabular-nums text-zinc-500">
+          <span className="text-[10px] tabular-nums text-zinc-400">
             {uptime.checked > 0 ? `${uptime.pct}%` : "—"}
           </span>
         </div>
@@ -343,7 +343,7 @@ function HostSpark({ log, host }: { log: LogEntry[]; host: string }) {
           role="img"
           aria-label={`${total} URLs submitted for ${host} in the last 7 days`}
         >
-          <span className="text-[10px] tabular-nums text-zinc-500">
+          <span className="text-[10px] tabular-nums text-zinc-400">
             {total}
           </span>
           <span className="flex items-end gap-[2px]">
@@ -357,7 +357,7 @@ function HostSpark({ log, host }: { log: LogEntry[]; host: string }) {
               />
             ))}
           </span>
-          <Send className="h-2.5 w-2.5 text-zinc-600" />
+          <Send className="h-2.5 w-2.5 text-zinc-400" />
         </div>
       </TooltipTrigger>
       <TooltipContent
@@ -367,7 +367,7 @@ function HostSpark({ log, host }: { log: LogEntry[]; host: string }) {
         <span className="font-semibold">
           {total} URL{total === 1 ? "" : "s"} submitted
         </span>
-        <span className="text-zinc-500"> · this host · last 7 days</span>
+        <span className="text-zinc-400"> · this host · last 7 days</span>
       </TooltipContent>
     </Tooltip>
   );
@@ -406,7 +406,7 @@ function ScoreSpark({ scores }: { scores: number[] }) {
           aria-label={label}
           className="hidden items-center gap-1 sm:flex"
         >
-          <Gauge className="h-2.5 w-2.5 text-zinc-600" />
+          <Gauge className="h-2.5 w-2.5 text-zinc-400" />
           <svg
             width={W}
             height={H}
@@ -445,7 +445,7 @@ function ScoreSpark({ scores }: { scores: number[] }) {
         <span className="font-semibold">
           {enough ? `Score ${pts[0]} → ${pts[pts.length - 1]}` : "Collecting history"}
         </span>
-        <span className="text-zinc-500"> · last {Math.max(pts.length, 1)} checks</span>
+        <span className="text-zinc-400"> · last {Math.max(pts.length, 1)} checks</span>
       </TooltipContent>
     </Tooltip>
   );
@@ -480,7 +480,7 @@ function ScoreDelta({ trend }: { trend: SiteUptime["scoreTrend"] }) {
           SEO score {up ? "+" : ""}
           {trend.delta} since first check
         </span>
-        <span className="text-zinc-500">
+        <span className="text-zinc-400">
           {" "}
           ({trend.first} → {trend.current})
         </span>

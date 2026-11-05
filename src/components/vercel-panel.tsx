@@ -251,7 +251,7 @@ export function VercelOpsPanel() {
           </Badge>
         )}
       </div>
-      <p className="mb-4 text-xs leading-relaxed text-zinc-500">
+      <p className="mb-4 text-xs leading-relaxed text-zinc-400">
         The <span className="text-amber-400/90">leads.</span> and{" "}
         <span className="text-amber-400/90">dev.</span> subdomains still point at
         old Vercel projects, so they serve stale builds. Paste a Vercel API
@@ -278,13 +278,13 @@ export function VercelOpsPanel() {
               placeholder="Vercel API token — stored server-side once, never in this browser"
               autoComplete="off"
               aria-label="Vercel API token"
-              className="border-white/10 bg-white/[0.03] pr-9 font-mono text-xs text-zinc-200 placeholder:text-zinc-700 focus-visible:ring-emerald-500/40"
+              className="border-white/10 bg-white/[0.03] pr-9 font-mono text-xs text-zinc-200 placeholder:text-zinc-500 focus-visible:ring-emerald-500/40"
             />
             <button
               type="button"
               onClick={() => setShowToken((v) => !v)}
               aria-label={showToken ? "Hide token" : "Show token"}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-600 transition-colors hover:text-zinc-300"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 transition-colors hover:text-zinc-300"
             >
               {showToken ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
             </button>
@@ -329,7 +329,7 @@ export function VercelOpsPanel() {
             variant="ghost"
             disabled={disconnecting}
             onClick={() => void disconnect()}
-            className="h-8 gap-1 px-2 text-[11px] text-zinc-500 transition-colors hover:bg-white/5 hover:text-rose-300"
+            className="h-8 gap-1 px-2 text-[11px] text-zinc-400 transition-colors hover:bg-white/5 hover:text-rose-300"
           >
             {disconnecting ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -338,7 +338,7 @@ export function VercelOpsPanel() {
             )}{" "}
             {disconnecting ? "disconnecting…" : "disconnect"}
           </Button>
-          <span className="text-[10px] text-zinc-600">
+          <span className="text-[10px] text-zinc-400">
             {status.savedAt ? `token saved ${relativeTime(status.savedAt)}` : ""}
           </span>
         </div>
@@ -363,7 +363,7 @@ export function VercelOpsPanel() {
               )}
               <span className="min-w-0 flex-1 text-xs leading-relaxed">
                 <span className="font-mono text-zinc-300">{f.domain}</span>{" "}
-                <span className="text-zinc-500">— {f.note}</span>
+                <span className="text-zinc-400">— {f.note}</span>
               </span>
               {!f.ok && f.expectedProject ? (
                 <Button
@@ -390,7 +390,7 @@ export function VercelOpsPanel() {
           ))}
           {audit.projects.length > 0 ? (
             <details className="rounded-xl border border-white/5 bg-black/20 p-3">
-              <summary className="cursor-pointer text-[11px] font-medium text-zinc-500 transition-colors hover:text-zinc-300">
+              <summary className="cursor-pointer text-[11px] font-medium text-zinc-400 transition-colors hover:text-zinc-300">
                 Full project → domain map ({audit.projects.length} projects)
               </summary>
               <div className="mt-2 space-y-1">
@@ -399,7 +399,7 @@ export function VercelOpsPanel() {
                     <span className="w-44 shrink-0 truncate font-mono text-zinc-400">
                       {p.name}
                     </span>
-                    <span className="min-w-0 flex-1 font-mono text-[10px] text-zinc-600">
+                    <span className="min-w-0 flex-1 font-mono text-[10px] text-zinc-400">
                       {p.domains.length > 0 ? p.domains.join(", ") : "—"}
                     </span>
                   </div>
@@ -407,7 +407,7 @@ export function VercelOpsPanel() {
               </div>
             </details>
           ) : null}
-          <p className="px-1 text-[10px] leading-relaxed text-zinc-600">
+          <p className="px-1 text-[10px] leading-relaxed text-zinc-400">
             Note: <span className="font-mono">landing.</span>{" "}
             <span className="font-mono">ledger.</span>{" "}
             <span className="font-mono">profile.</span> can&apos;t be fixed by a
@@ -426,7 +426,7 @@ export function VercelOpsPanel() {
       {/* move results */}
       {moveResults.length > 0 ? (
         <div className="mb-4 rounded-xl border border-white/5 bg-black/20 p-3">
-          <h4 className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+          <h4 className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
             <FileClock className="h-3 w-3" /> Move log
           </h4>
           <div className="space-y-1">
@@ -451,7 +451,7 @@ export function VercelOpsPanel() {
 
       <Tooltip>
         <TooltipTrigger asChild>
-          <p className="cursor-default text-[10px] leading-relaxed text-zinc-600">
+          <p className="cursor-default text-[10px] leading-relaxed text-zinc-400">
             Token scope: it can list your projects and move fleet domains only
             (guarded to *.abdelhadygabriel.me). Stored server-side with
             restrictive permissions, never logged, removable any time.
