@@ -134,7 +134,7 @@ export function AgentUsageCard() {
               ))}
             </div>
           )}
-          <p className="mt-2 text-[10px] text-zinc-500">
+          <p className="mt-2 text-[10px] text-zinc-400">
             {days[0]?.date} → {days[days.length - 1]?.date} (UTC)
           </p>
         </div>
