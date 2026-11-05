@@ -104,7 +104,7 @@ function PerfList({
             {kind === "page" ? (
               <ExternalLink className="h-2.5 w-2.5 shrink-0 text-zinc-400 opacity-0 transition-opacity group-hover:opacity-100" />
             ) : (
-              <Search className="h-2.5 w-2.5 shrink-0 text-zinc-500" />
+              <Search className="h-2.5 w-2.5 shrink-0 text-zinc-400" />
             )}
           </div>
           <div className="mt-1 flex items-center gap-3 text-[10px] tabular-nums text-zinc-400">
